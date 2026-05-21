@@ -1,15 +1,13 @@
 function bw_out = bwmorph_thin_fast(bw, n)
 
-    // If iteration count not given,
-    // continue until image stabilizes
+    
     if argn(2) < 2 then
         n = %inf;
     end
 
-    // Convert input to binary
     bw_out = double(bw > 0);
 
-    // Build lookup tables only once
+    // Build lookup tables 
     [lut1, lut2] = build_luts();
 
     [rows, cols] = size(bw_out);
@@ -18,8 +16,6 @@ function bw_out = bwmorph_thin_fast(bw, n)
     changed = %t;
 
     while changed
-
-        // stop if maximum iterations reached
         if n <> %inf & iter >= n then
             break;
         end
@@ -39,9 +35,6 @@ function bw_out = bwmorph_thin_fast(bw, n)
             for c = 2:cols-1
 
                 if bw_out(r,c)==1 then
-
-                    
-                    // Read neighborhood
                     
 
                     P2 = bw_out(r-1,c);
@@ -54,11 +47,7 @@ function bw_out = bwmorph_thin_fast(bw, n)
 
                     P8 = bw_out(r,c-1);
                     P9 = bw_out(r-1,c-1);
-
-                    
                     // Convert neighborhood into code
-                    
-
                     code = 0;
 
                     code = code + P2*1;
@@ -73,8 +62,6 @@ function bw_out = bwmorph_thin_fast(bw, n)
 
                     
                     // Lookup deletion condition
-                    
-
                     if lut1(code+1)==1 then
                         del(r,c)=1;
                     end
@@ -87,8 +74,6 @@ function bw_out = bwmorph_thin_fast(bw, n)
 
         
         // Delete marked pixels
-        
-
         if or(del==1) then
 
             bw_out(del==1)=0;
@@ -105,12 +90,9 @@ function bw_out = bwmorph_thin_fast(bw, n)
         del=zeros(rows,cols);
 
         for r=2:rows-1
-
             for c=2:cols-1
-
                 if bw_out(r,c)==1 then
 
-                    
                     // Read neighbors
                     
 
@@ -126,8 +108,7 @@ function bw_out = bwmorph_thin_fast(bw, n)
                     P9=bw_out(r-1,c-1);
 
                     
-                    // Compute code
-                    
+                    // Compute code          
 
                     code=0;
 
@@ -143,8 +124,6 @@ function bw_out = bwmorph_thin_fast(bw, n)
 
                     
                     // LUT test
-                    
-
                     if lut2(code+1)==1 then
                         del(r,c)=1;
                     end
@@ -178,7 +157,6 @@ endfunction
 
 function [lut1, lut2] = build_luts()
     
-    // Initialize lookup tables with 256 entries (0-255)
     lut1 = zeros(256, 1);
     lut2 = zeros(256, 1);
     
@@ -195,13 +173,10 @@ function [lut1, lut2] = build_luts()
         P8 = bitget(i, 7);  // bit 6
         P9 = bitget(i, 8);  // bit 7
         
-        // Count transitions (connectivity)
         A = P2 + P3 + P4 + P5 + P6 + P7 + P8 + P9;
         
-        // Count connectivity
         B = P2*P3*P4 + P3*P4*P5 + P4*P5*P6 + P5*P6*P7 + P6*P7*P8 + P7*P8*P9 + P8*P9*P2 + P9*P2*P3;
         
-        // Count transitions in sequence
         T = 0;
         if P2 < P3 then T = T + 1; end
         if P3 < P4 then T = T + 1; end
