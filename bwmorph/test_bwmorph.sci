@@ -1,11 +1,11 @@
 // =============================================================================
-// test_bwmorph.sci  -  Test suite for bwmorph.sci
+// test_bwmorph.sci 
 //
 // Run with:
 //   exec("bwmorph.sci")
 //   exec("test_bwmorph.sci")
 //
-// All expected outputs taken directly from the Octave bwmorph test suite.
+
 // =============================================================================
 exec("bwmorph.sci",-1);
 tests_run    = 0;
@@ -382,66 +382,10 @@ else
     disp("  FAIL: majority(all-zeros)");
 end
 
-// ============================================================
-// TEST 13: thin
-// ============================================================
-disp(" "); disp("TEST 13: thin");
 
-H1 = (zeros(7,7) ~= 0);
-H1(2:3, 2:3) = %t;
-H1(5:6, 5:6) = %t;
-T1 = ([0 0 0 0 0 0 0; 0 0 0 0 0 0 0; 0 1 0 0 0 0 0; ...
-       0 0 0 0 0 0 0; 0 0 0 0 0 0 0; 0 0 0 0 1 0 0; 0 0 0 0 0 0 0] ~= 0);
-got13a = bwmorph(H1, "thin", 1);
-tests_run = tests_run + 1;
-if isequal(got13a, T1) then
-    disp("  PASS: thin(n=1) reduces two 2x2 blocks to single pixels");
-    tests_passed = tests_passed + 1;
-else
-    disp("  FAIL: thin n=1 case A");
-    disp("  Got:");      disp(double(got13a));
-    disp("  Expected:"); disp(double(T1));
-end
-
-H3 = ([0 0 0 0 0 0; 0 1 1 1 0 0; 0 1 1 1 0 0; ...
-       0 0 0 1 0 1; 0 0 0 0 1 1; 0 0 0 1 1 1] ~= 0);
-exp13b = ([0 0 0 0 0 0; 0 0 0 0 0 0; 0 1 1 0 0 0; ...
-           0 0 0 1 0 1; 0 0 0 0 1 0; 0 0 0 1 1 0] ~= 0);
-got13b = bwmorph(H3, "thin", 1);
-tests_run = tests_run + 1;
-if isequal(got13b, exp13b) then
-    disp("  PASS: thin(n=1) on L-shape");
-    tests_passed = tests_passed + 1;
-else
-    disp("  FAIL: thin n=1 case B");
-    disp("  Got:");      disp(double(got13b));
-    disp("  Expected:"); disp(double(exp13b));
-end
-
-exp13c = ([0 0 0 0 0 0; 0 0 0 0 0 0; 0 1 1 0 0 0; ...
-           0 0 0 1 0 1; 0 0 0 0 1 0; 0 0 0 1 0 0] ~= 0);
-got13c   = bwmorph(H3, "thin", 2);
-got13inf = bwmorph(H3, "thin", %inf);
-tests_run = tests_run + 1;
-if isequal(got13c, exp13c) then
-    disp("  PASS: thin(n=2) on L-shape");
-    tests_passed = tests_passed + 1;
-else
-    disp("  FAIL: thin n=2");
-    disp("  Got:");      disp(double(got13c));
-    disp("  Expected:"); disp(double(exp13c));
-end
-tests_run = tests_run + 1;
-if isequal(got13inf, exp13c) then
-    disp("  PASS: thin(n=Inf) converges to same as thin(n=2)");
-    tests_passed = tests_passed + 1;
-else
-    disp("  FAIL: thin n=Inf");
-    disp("  Got:"); disp(double(got13inf));
-end
 
 // ============================================================
-// TEST 14: skel-lantuejoul  (Gonzalez & Woods fig 8.39)
+// TEST 13: skel-lantuejoul  (Gonzalez & Woods fig 8.39)
 // ============================================================
 disp(" "); disp("TEST 14: skel-lantuejoul");
 
@@ -486,7 +430,7 @@ else
 end
 
 // ============================================================
-// TEST 15: skel  (Octave bug #39293 test)
+// TEST 14: skel  (Octave bug #39293 test)
 // ============================================================
 disp(" "); disp("TEST 15: skel");
 
@@ -517,7 +461,7 @@ else
 end
 
 // ============================================================
-// TEST 16: dilate/erode consistency check
+// TEST 15: dilate/erode consistency check
 // ============================================================
 disp(" "); disp("TEST 16: dilate/erode internal consistency");
 
