@@ -48,7 +48,7 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 
 ---
 
-### Helper functions (also available after `exec`)
+### Helper functions 
 
 | Function | Signature | What it does |
 |----------|-----------|--------------|
@@ -63,7 +63,7 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 
 ---
 
-## Variable Glossary
+## Variables
 
 ### Main function variables
 
