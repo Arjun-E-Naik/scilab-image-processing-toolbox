@@ -16,7 +16,7 @@ k - conv kernel to specify neighboring pixels
 thresh - numeric threshold
 
 bw2_tmp - temporary matrix that hold result of current loop
-pad - used in "thicken" operation
+
 */
 
 function R = bw_dilate(A, se)
@@ -46,7 +46,7 @@ endfunction
 
 function P = bw_padarray(A, pad)
     [r, c] = size(A);
-    // zeros() returns doubles, so comparing to double 0 is perfectly safe here
+    // zeros() returns doubles
     P = zeros(r + 2*pad, c + 2*pad) ~= 0; 
     P(pad+1:pad+r, pad+1:pad+c) = A;
 endfunction
@@ -58,7 +58,7 @@ function B = local_applylut(A, lut)
     idx(idx > 512) = 512;
     idx(idx < 1)   = 1;
     
-    // lut is already boolean, so matrix return boolean matrix
+    //  matrix return boolean matrix
     B = matrix(lut(idx), size(A, 1), size(A, 2));
 endfunction
 
