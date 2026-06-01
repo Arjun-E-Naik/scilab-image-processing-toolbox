@@ -4,8 +4,7 @@
 // Run this file from the Scilab console:
 //   exec('test_entropyfilt.sci', -1)
 //
-// All tests print PASS or FAIL with a tolerance of 1e-4 unless stated.
-// Expected outputs match Octave/Matlab reference values exactly.
+
 
 exec('entropyfilt.sci', -1);
 
