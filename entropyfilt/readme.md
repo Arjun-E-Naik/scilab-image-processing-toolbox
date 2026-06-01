@@ -1,4 +1,4 @@
-# `entropyfilt` — Local Entropy Filter for Images (Scilab)
+# `entropyfilt.sci`
 
 ---
 
