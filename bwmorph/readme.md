@@ -23,7 +23,7 @@ out = bwmorph(img, "erode", 3)        // run exactly 3 times
 
 
 
-### `bwmorph(bw, operation [], n)`
+### `bwmorph(bw, operation [, n])`
 
 ```scilab
 bw2 = bwmorph(bw, operation)
@@ -36,9 +36,9 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `bw` | numeric or boolean matrix | Input binary image.  |
-| `operation` | string | Name of the operation to apply .  |
-| `n` | scalar (optional) | Number of iterations. |
+| `bw` | numeric or boolean matrix | Input binary image. |
+| `operation` | string | Name of the operation to apply. |
+| `n` | scalar (optional) | Number of iterations. Default is 1. Pass `%inf` to run until convergence. |
 
 #### Output
 
@@ -48,7 +48,7 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 
 ---
 
-### Helper functions 
+### Helper functions
 
 | Function | Signature | What it does |
 |----------|-----------|--------------|
@@ -58,8 +58,9 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 | `bw_close` | `R = bw_close(A, se)` | Dilate then erode |
 | `bw_tophat` | `R = bw_tophat(A, se)` | `A AND NOT open(A)` |
 | `bw_bothat` | `R = bw_bothat(A, se)` | `close(A) AND NOT A` |
-| `bw_padarray` | `P = bw_padarray(A, pad)` | Pad `A` with `pad` rows/columns of zeros on all four sides |
 | `local_applylut` | `B = local_applylut(A, lut)` | Apply a 512-entry boolean LUT to every pixel using its 3×3 neighbourhood |
+| `bw_thin_zs` | `bw2 = bw_thin_zs(bw, n)` | Thin binary image using the Zhang–Suen algorithm for up to `n` iterations |
+| `thin_subiteration` | `[bw_out, changed] = thin_subiteration(bw, step)` | One sub-iteration of Zhang–Suen thinning (step 1 or step 2); returns updated image and a flag indicating whether any pixel changed |
 
 ---
 
@@ -75,14 +76,13 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 | `op` | Lowercase copy of `operation` (from `convstr`), used for case-insensitive dispatch. |
 | `se3` | 3×3 all-ones structuring element used by dilate, erode, open, close, tophat, bothat. |
 | `loop_once` | Boolean flag. Set to `%t` for idempotent operations — applying them more than once gives the same result, so `n` is clamped to 1. |
-| `morph_tag` | String tag that tells the iteration loop which code path to execute. Possible values: `"dilate"`, `"erode"`, `"open"`, `"close"`, `"tophat"`, `"bothat"`, `"lut1"`, `"lut1_and"`, `"lut12"`, `"conv_gt"`, `"conv_ge"`, `"done"`. |
+| `morph_tag` | String tag that tells the iteration loop which code path to execute. Possible values: `"dilate"`, `"erode"`, `"open"`, `"close"`, `"tophat"`, `"bothat"`, `"lut1"`, `"lut1_and"`, `"conv_gt"`, `"conv_ge"`, `"done"`. |
 | `v`, `v1`, `v2` | Temporary integer column vectors (512×1) holding raw LUT data (0s and 1s). Converted to boolean with `(v ~= 0)`. |
 | `lut1`, `lut2` | Boolean column vectors (512×1). The lookup tables used by LUT-based operations. |
-| `post_bridge` | Boolean flag. Set to `%t` for `skel` and `skel-pratt`, which run a bridge pass after each thinning iteration to reconnect broken skeleton segments. |
+| `post_bridge` | Boolean flag. Set to `%t` for `skel`, which runs a bridge pass after each thinning iteration to reconnect broken skeleton segments. |
 | `K` | Convolution kernel matrix for operations that use `conv_gt` or `conv_ge`. |
 | `thresh` | Numeric threshold for convolution-based operations. |
 | `bw2_tmp` | Temporary result matrix holding the output of the current iteration. Becomes `bw2` at the end. |
-| `pad` | Border padding width used by the `thicken` operation. Computed as `2 * min([max(size(bw)), n])`. |
 | `i` | Loop counter for the iteration while-loop. |
 | `acc` | Accumulator boolean matrix used by `skel-lantuejoul` to collect results across erosion levels. |
 | `iter` | Inner iteration counter inside `skel-lantuejoul`. |
@@ -94,9 +94,24 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 |----------|-------------|
 | `A` | Input boolean image to which the LUT is applied. |
 | `lut` | 512×1 boolean column vector; the lookup table. |
-| `W` | Pre-flipped 3×3 weight matrix `[128 64 32; 16 256 8; 4 2 1]` passed to `conv2`. After `conv2` flips it internally, the weights land on the correct neighbours. |
+| `W` | 3×3 weight matrix `[1 2 4; 8 16 32; 64 128 256]` passed to `conv2`. Weights are arranged so that after `conv2` slides the kernel, each neighbour contributes the correct power-of-two to the index. |
 | `idx` | Integer matrix (same size as `A`) containing the 1-based LUT index for each pixel. |
 | `B` | Output boolean matrix (same size as `A`). |
+
+### `bw_thin_zs` / `thin_subiteration` variables
+
+| Variable | Description |
+|----------|-------------|
+| `bw` | Working copy of the image (converted to `double` 0/1 inside `bw_thin_zs`). |
+| `changed` | Boolean flag; `%t` if any pixel was removed during the current full iteration. |
+| `changed1`, `changed2` | Per-sub-iteration change flags. |
+| `iter` | Iteration counter in `bw_thin_zs`. |
+| `marker` | Matrix of the same size as `bw`; pixels marked `1` will be removed at the end of the sub-iteration. |
+| `p2`–`p9` | The eight neighbours of the current pixel in N, NE, E, SE, S, SW, W, NW order. |
+| `B` | Neighbour sum (number of foreground neighbours, 0–8). |
+| `A` | Number of 0→1 transitions in the ordered neighbour ring. |
+| `neighbours` | Length-9 array `[p2, p3, …, p9, p2]` used to count transitions. |
+| `step` | Sub-iteration selector (1 or 2); controls which pair of conditions is checked. |
 
 ### Helper function variables
 
@@ -104,8 +119,6 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 |----------|-------------|
 | `se` | Structuring element passed to helper functions (typically `se3 = ones(3,3)`). |
 | `full` | `sum(se(:))` — the maximum possible conv2 result, used as the erosion threshold. |
-| `r`, `c` | Row and column count of the padded image inside `bw_padarray`. |
-| `P` | Output padded matrix in `bw_padarray`. |
 
 ---
 
@@ -127,12 +140,10 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 | `open` | yes | Erode then dilate — removes small protrusions |
 | `remove` | yes | Removes interior pixels (all four 4-connected neighbours are 1) |
 | `shrink` | no | Shrinks objects to single pixels (no holes) or rings (with holes) |
-| `skel` | no | Skeletonization using Pratt's algorithm (medial-axis skeleton) |
+| `skel` | no | Skeletonization using Pratt's two-LUT algorithm; applies a bridge pass after each iteration |
 | `skel-lantuejoul` | no | Skeletonization using Lantuejoul's method (union of tophat levels) |
 | `spur` | no | Removes dead-end (spur) pixels from a skeleton |
-| `thin` | no | Thins objects to 1-pixel-wide strokes |
-| `thin-pratt` | no | Thinning using Pratt's algorithm |
-| `thicken` | no | Grows objects without letting them merge |
+| `thin` | no | Thins objects to 1-pixel-wide strokes using the Zhang–Suen algorithm |
 | `tophat` | yes | `bw AND NOT open(bw)` — highlights small bright features |
 
 ---
@@ -161,15 +172,15 @@ remove:      conv2(bw, K) > 0   where K = [0 -1 0; -1 4 -1; 0 -1 0]
              center=1, all 4 direct nbrs=1  → 4-4=0  not > 0  → remove
              center=1, any direct nbr=0     → 4-k > 0         → keep
 
-majority:    conv2(bw, ones(3,3)) >= 4.5
-             Sum >= 4.5 means 5 or more of the 9 pixels are 1.
+majority:    conv2(bw, ones(3,3)) >= 5
+             Sum >= 5 means 5 or more of the 9 pixels are 1.
 ```
 
 ### LUT-based operations
 
-Bridge, diag, endpoints, hbreak, spur, shrink, skel, thin, and thin-pratt all use
-look-up tables. Each pixel's 3×3 neighbourhood is encoded as a 9-bit integer
-(the LUT index), and the table entry tells us what the center pixel should become.
+Bridge, diag, endpoints, hbreak, spur, shrink, and skel all use look-up tables.
+Each pixel's 3×3 neighbourhood is encoded as a 9-bit integer (the LUT index),
+and the table entry tells us what the center pixel should become.
 
 **Neighbourhood bit layout:**
 
@@ -185,23 +196,44 @@ index = 1 + X0*1 + X1*2 + X2*4 + X3*8 + X4*16
 With 9 binary pixels there are 2^9 = 512 possible patterns, so each LUT has
 exactly 512 entries. The LUT is stored as a 512×1 boolean column vector.
 
-**Why the weight matrix is `[128 64 32; 16 256 8; 4 2 1]`:**
+**Why the weight matrix is `[1 2 4; 8 16 32; 64 128 256]`:**
 
-`conv2` performs correlation, which flips the kernel before sliding it over the
-image. i  write the weights *pre-flipped* so that after `conv2`'s internal flip
-each weight lands on the correct neighbour position, producing the exact index
-formula.
+`conv2` slides the kernel over the image in standard correlation fashion. The
+weights are arranged in row-major order so that each position contributes the
+correct power-of-two corresponding to its bit in the index formula above,
+mapping directly to the expected 9-bit neighbourhood encoding.
 
-**Two-LUT operations (shrink, skel, thin-pratt):**
+**Two-LUT operations (shrink, skel):**
 
 ```
-Step 1:  mid  = lut1(bw)       mark candidates for deletion
-Step 2:  keep = lut2(mid)      veto deletions that break topology
-Step 3:  bw2  = bw AND keep    apply only safe deletions (never add pixels)
+Step 1:  mid  = lut1(bw)           mark candidates for deletion
+Step 2:  out  = lut2(mid)          veto deletions that break topology
+Step 3:  bw2  = bw AND out         apply only safe deletions (never add pixels)
 ```
 
-**thin** uses the same two-LUT approach but without the final AND with the
-original, which is what allows it to produce strokes rather than single points.
+### Zhang–Suen thinning algorithm (`thin`)
+
+The `thin` operation uses the Zhang–Suen iterative thinning algorithm implemented
+in `bw_thin_zs`. Each full iteration consists of two sub-iterations.
+
+**Per-pixel conditions (both sub-iterations):**
+
+1. The pixel is currently foreground (`bw(i,j) == 1`).
+2. It has between 2 and 6 foreground neighbours (connectivity condition).
+3. Its ordered neighbour ring contains exactly one 0→1 transition (simple point condition).
+
+**Sub-iteration-specific conditions:**
+
+```
+Sub-iteration 1:  p2 * p4 * p6 == 0   AND   p4 * p6 * p8 == 0
+Sub-iteration 2:  p2 * p4 * p8 == 0   AND   p2 * p6 * p8 == 0
+```
+
+where p2=N, p4=E, p6=S, p8=W in the standard Zhang–Suen labelling.
+
+Pixels satisfying all conditions in a sub-iteration are collected into a marker
+matrix and removed simultaneously at the end of that sub-iteration. The algorithm
+stops when neither sub-iteration removes any pixel.
 
 ### Iteration loop
 
@@ -232,16 +264,6 @@ for i = 1 to n:
     bw      = ebw                      // next level
 
 return acc
-```
-
-### thicken algorithm
-
-```
-pad the image with zeros
-thin the BACKGROUND (inverted image) using thin-pratt
-apply diagonal fill pass (diag)
-remove padding
-invert back
 ```
 
 ---
@@ -336,9 +358,15 @@ out_n3  = bwmorph(slBW, "skel-lantuejoul", 3);    // three levels
 out_inf = bwmorph(slBW, "skel-lantuejoul", %inf); // full skeleton
 ```
 
+### Test 8 — `thin` (Zhang–Suen): thin a thick horizontal bar
+
+```scilab
+in  = ones(5, 7) ~= 0;
+out = bwmorph(in, "thin", %inf);
+// The 5-row bar is thinned to a single 1-pixel-wide horizontal stroke.
+```
+
 ---
-
-
 
 ## Running the Tests
 
