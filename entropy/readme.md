@@ -19,7 +19,7 @@ The result is expressed in **bits**.
  
 
  
-## Quick Start
+## entropy()
  
 ```scilab
 // Load the function
