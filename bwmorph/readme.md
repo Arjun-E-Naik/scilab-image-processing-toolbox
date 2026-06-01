@@ -36,9 +36,9 @@ Performs the named morphological operation on binary image `bw`, repeated `n` ti
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `bw` | numeric or boolean matrix | Input binary image. Any nonzero value is treated as foreground (1). |
+| `bw` | numeric or boolean matrix | Input binary image.  |
 | `operation` | string | Name of the operation to apply .  |
-| `n` | scalar (optional) | Number of iterations. Default is 1. Use `%inf` to repeat until the image stops changing. Negative values are treated as 1. |
+| `n` | scalar (optional) | Number of iterations. |
 
 #### Output
 
