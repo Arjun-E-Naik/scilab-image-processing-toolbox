@@ -33,7 +33,7 @@ function retval = entropyfilt(I, varargin)
     if (rhs >= 2) then
         domain = varargin(1);
     else
-        domain = ones(9, 9) == 1; // Equivalent to Octave's true(9)
+        domain = ones(9, 9) == 1; 
     end
 
     if (type(domain) <> 1 & type(domain) <> 4 & type(domain) <> 8) then
@@ -55,8 +55,8 @@ function retval = entropyfilt(I, varargin)
         nbins = 256;
     end
 
-    // Convert to 8 or 16 bit integers if needed
-    //Mimics Octave's im2uint8 
+   
+    
     T = typeof(I);
     select T
         case "constant" then 
@@ -73,7 +73,6 @@ function retval = entropyfilt(I, varargin)
             error("entropyfilt: cannot handle images of class " + T);
     end
 
-    // Store original dimensions before padding
     orig_size = size(I);
     
     // 4. Pad image
@@ -105,18 +104,18 @@ function retval = entropyfilt(I, varargin)
 
     for i = 1:orig_size(1)
         for j = 1:orig_size(2)
-            // Extract local neighbourhood based on domain size
+            
             window = I(i : i + dr - 1, j : j + dc - 1);
             
             // Mask the window with the boolean domain
             elements = double(window(domain)); 
 
             if length(elements) > 0 then
-                // Calculate discrete probabilities 
+                 
                 freq = tabul(elements); 
                 P = freq(:, 2) / sum(freq(:, 2)); 
 
-                // Compute Entropy: E = -sum(P .* log2(P))
+                //  E = -sum(P .* log2(P))
                 retval(i, j) = -sum(P .* log2(P));
             end
         end
