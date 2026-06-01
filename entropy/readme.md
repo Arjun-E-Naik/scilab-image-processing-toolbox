@@ -1,4 +1,4 @@
-# entropy.sci — Shannon Image Entropy for Scilab
+# entropy.sci 
  
 ---
 
@@ -60,7 +60,7 @@ E = entropy(I, nbins)
 | `E` | scalar double | Shannon entropy in **bits**. Range: `[0, log2(nbins)]`. |
  
  
-### `im2uint8()` — internal helper
+### `im2uint8()` —  helper function
  
 ```
 out = im2uint8(I)
@@ -77,7 +77,7 @@ Converts a numeric image array to uint8-equivalent double values (range 0–255)
  
 ---
  
-### `imhist_scilab()` — internal helper
+### `imhist_scilab()` — helper function
  
 ```
 counts = imhist_scilab(I, nbins)
@@ -98,7 +98,7 @@ For uint8 images (`nbins = 256`): bins are uniformly spaced over `[0, 255]`.
  
 ## Variable Reference
  
-The following variables appear inside `entropy()` and its helpers:
+The following variables are in `entropy()` and its helpers:
  
 | Variable | Scope | Type | Description |
 |----------|-------|------|-------------|
