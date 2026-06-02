@@ -17,10 +17,9 @@ P - The discrete probability vector
 */
 
 function retval = entropyfilt(I, varargin)
-
     [lhs, rhs] = argn(0);
 
-    // 1. Check input
+    // 1. Check input arguments
     if (rhs == 0) then
         error("entropyfilt: not enough input arguments");
     end
@@ -39,7 +38,7 @@ function retval = entropyfilt(I, varargin)
     if (type(domain) <> 1 & type(domain) <> 4 & type(domain) <> 8) then
         error("entropyfilt: DOMAIN must be a logical matrix");
     end
-    domain = (domain <> 0); // Convert to boolean
+    domain = (domain <> 0); 
 
     // Parse padding
     if (rhs >= 3) then
@@ -48,57 +47,52 @@ function retval = entropyfilt(I, varargin)
         padding = "symmetric";
     end
 
-    // 2. Get number of histogram bins
-    if (type(I) == 4) then
-        nbins = 2;
-    else
-        nbins = 256;
-    end
-
-   
-    
+    // 2. Type conversion perfectly mirroring Octave's im2uint8
     T = typeof(I);
     select T
         case "constant" then 
-            I = uint8(round(I * 255));
+            // Clip to [0,1], then scale by 255
+            I = uint8(round(min(max(I, 0), 1) * 255));
         case "uint16" then
             I = uint8(double(I) / 257);
         case "boolean" then
-            
+            // Leave as boolean
         case "uint8" then
-            
-        case "int8" then
             // Do nothing
+        case "int8" then
+            I = uint8(max(I, 0)); 
         else
             error("entropyfilt: cannot handle images of class " + T);
     end
 
     orig_size = size(I);
     
-    // 4. Pad image
+    // 3. Pad image
     pad = floor(size(domain) / 2);
 
-    // Inline optimized symmetric padding ,this equal to padarray
-    if padding == "symmetric" then
-        r_idx = [pad(1):-1:1, 1:orig_size(1), orig_size(1):-1:orig_size(1)-pad(1)+1];
-        c_idx = [pad(2):-1:1, 1:orig_size(2), orig_size(2):-1:orig_size(2)-pad(2)+1];
-        I = I(r_idx, c_idx);
-    else
-        // otherwise zero padding if not symmetric
-        I_temp = zeros(orig_size(1) + 2*pad(1), orig_size(2) + 2*pad(2));
-        I_temp(pad(1)+1:$-pad(1), pad(2)+1:$-pad(2)) = I;
-        I = I_temp;
+    select padding
+        case "symmetric" then
+            r_idx = [pad(1):-1:1, 1:orig_size(1), orig_size(1):-1:orig_size(1)-pad(1)+1];
+            c_idx = [pad(2):-1:1, 1:orig_size(2), orig_size(2):-1:orig_size(2)-pad(2)+1];
+            I = I(r_idx, c_idx);
+        case "replicate" then
+            r_idx = [ones(1, pad(1)), 1:orig_size(1), orig_size(1)*ones(1, pad(1))];
+            c_idx = [ones(1, pad(2)), 1:orig_size(2), orig_size(2)*ones(1, pad(2))];
+            I = I(r_idx, c_idx);
+        else 
+            // Zero padding fallback
+            I_temp = zeros(orig_size(1) + 2*pad(1), orig_size(2) + 2*pad(2));
+            I_temp(pad(1)+1:$-pad(1), pad(2)+1:$-pad(2)) = double(I);
+            I = uint8(I_temp);
     end
 
-    
+    // Handle even-sized domains
     even = (round(size(domain) / 2) == size(domain) / 2);
-    idx = list();
-    for k = 1:ndims(I)
-        idx($+1) = (even(k) + 1) : size(I, k);
-    end
-    I = I(idx(1), idx(2)); // Apply dimension offset
+    idx1 = (even(1) + 1) : size(I, 1);
+    idx2 = (even(2) + 1) : size(I, 2);
+    I = I(idx1, idx2); 
 
-    //  Spatial Filtering 
+    // 4. Spatial Filtering Calculation
     retval = zeros(orig_size(1), orig_size(2));
     [dr, dc] = size(domain);
 
@@ -106,16 +100,18 @@ function retval = entropyfilt(I, varargin)
         for j = 1:orig_size(2)
             
             window = I(i : i + dr - 1, j : j + dc - 1);
-            
-            // Mask the window with the boolean domain
             elements = double(window(domain)); 
 
             if length(elements) > 0 then
-                 
-                freq = tabul(elements); 
-                P = freq(:, 2) / sum(freq(:, 2)); 
-
-                //  E = -sum(P .* log2(P))
+                u_vals = unique(elements);
+                n_vals = length(u_vals);
+                P = zeros(n_vals, 1);
+                
+                for k = 1:n_vals
+                    P(k) = sum(elements == u_vals(k));
+                end
+                
+                P = P / sum(P); 
                 retval(i, j) = -sum(P .* log2(P));
             end
         end
