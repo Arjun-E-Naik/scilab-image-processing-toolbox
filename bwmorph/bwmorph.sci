@@ -19,21 +19,40 @@ bw2_tmp - temporary matrix that hold result of current loop
 
 */
 
+
+
+
 function R = bw_dilate(A, se)
     R = conv2(double(A), double(se), "same") > 0;
 endfunction
 
 function R = bw_erode(A, se)
+    [r, c] = size(A);
+    P = ones(r + 2, c + 2) ~= 0; 
+    P(2:r+1, 2:c+1) = A;
+    
+    // Convolve the padded image
     full = sum(double(se(:)));
-    R = conv2(double(A), double(se), "same") >= full;
+    R_padded = conv2(double(P), double(se), "same") >= full;
+    
+    // Crop back to original dimensions
+    R = R_padded(2:r+1, 2:c+1);
 endfunction
 
 function R = bw_open(A, se)
-    R = bw_dilate(bw_erode(A, se), se);
+    pad = 1;
+    P = bw_padarray(A, pad);
+    P = bw_dilate(bw_erode(P, se), se);
+    [r, c] = size(A);
+    R = P(pad+1:r+pad, pad+1:c+pad);
 endfunction
 
 function R = bw_close(A, se)
-    R = bw_erode(bw_dilate(A, se), se);
+    pad = 1;
+    P = bw_padarray(A, pad);
+    P = bw_erode(bw_dilate(P, se), se);
+    [r, c] = size(A);
+    R = P(pad+1:r+pad, pad+1:c+pad);
 endfunction
 
 function R = bw_tophat(A, se)
@@ -44,94 +63,33 @@ function R = bw_bothat(A, se)
     R = bw_close(A, se) & ~A;
 endfunction
 
+function P = bw_padarray(A, pad)
+    [r, c] = size(A);
+    P = zeros(r + 2*pad, c + 2*pad) ~= 0; 
+    P(pad+1:pad+r, pad+1:pad+c) = A;
+endfunction
+
 function B = local_applylut(A, lut)
-    // Standard 3x3 binary weights (row-major, top-left = 1)
-    W = [1 2 4; 8 16 32; 64 128 256];
-    idx = conv2(double(A), W, "same") + 1;
-    idx = round(idx);
-    idx(idx < 1) = 1;
-    idx(idx > 512) = 512;
-    B = matrix(lut(idx), size(A,1), size(A,2));
-endfunction
-
-// ========== Zhang–Suen thinning algorithm ==========
-function bw2 = bw_thin_zs(bw, n)
+    W = [256, 32, 4; 128, 16, 2; 64, 8, 1];
+    idx = round(conv2(double(A), W, "same")) + 1;
     
-    if n <= 0 then
-        bw2 = bw;
-        return;
-    end
-    bw = double(bw);  // work with 0/1
-    changed = %t;
-    iter = 1;
-    while (iter <= n) & changed
-        changed = %f;
-        // Sub-iteration 1
-        [bw, changed1] = thin_subiteration(bw, 1);
-        changed = changed | changed1;
-        // Sub-iteration 2
-        [bw, changed2] = thin_subiteration(bw, 2);
-        changed = changed | changed2;
-        iter = iter + 1;
-    end
-    bw2 = (bw ~= 0);
+    idx(idx > 512) = 512;
+    idx(idx < 1)   = 1;
+    
+    B = matrix(lut(idx), size(A, 1), size(A, 2));
 endfunction
 
-function [bw_out, changed] = thin_subiteration(bw, step)
-    // bw is double 0/1 matrix
-    [h, w] = size(bw);
-    marker = zeros(h, w);
-    for i = 2:h-1
-        for j = 2:w-1
-            if bw(i,j) == 0 then continue; end
-            // 8-neighbourhood ordered: N, NE, E, SE, S, SW, W, NW
-            p2 = bw(i-1, j);
-            p3 = bw(i-1, j+1);
-            p4 = bw(i,   j+1);
-            p5 = bw(i+1, j+1);
-            p6 = bw(i+1, j);
-            p7 = bw(i+1, j-1);
-            p8 = bw(i,   j-1);
-            p9 = bw(i-1, j-1);
-            // Condition 1: 2 <= B(p) <= 6
-            B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
-            if B < 2 | B > 6 then continue; end
-           
-            neighbours = [p2, p3, p4, p5, p6, p7, p8, p9, p2];
-            A = 0;
-            for k = 1:8
-                if neighbours(k) == 0 & neighbours(k+1) == 1 then
-                    A = A + 1;
-                end
-            end
-            if A ~= 1 then continue; end
-           
-            if step == 1 then
-                // Step 1: p2 * p4 * p6 == 0  and  p4 * p6 * p8 == 0
-                if (p2 * p4 * p6 == 0) & (p4 * p6 * p8 == 0) then
-                    marker(i,j) = 1;
-                end
-            else // step == 2
-                // Step 2: p2 * p4 * p8 == 0  and  p2 * p6 * p8 == 0
-                if (p2 * p4 * p8 == 0) & (p2 * p6 * p8 == 0) then
-                    marker(i,j) = 1;
-                end
-            end
-        end
-    end
-    bw_out = bw;
-    bw_out(find(marker)) = 0;
-    changed = (sum(marker) > 0);
-endfunction
 
 
 function bw2 = bwmorph(bw, operation, n)
+
     if argn(2) < 2 | argn(2) > 3 then
-        error("bwmorph: need 2 or 3 arguments: bwmorph(bw, operation [, n])");
+        error("bwmorph: need 2 or 3 arguments:  bwmorph(bw, operation [, n])");
     end
     if argn(2) < 3 then
         n = 1;
     end
+
     if ~(type(bw) == 1 | type(bw) == 4 | type(bw) == 8) then
         error("bwmorph: BW must be a numeric or boolean matrix");
     end
@@ -144,27 +102,19 @@ function bw2 = bwmorph(bw, operation, n)
     if n < 0 then
         n = 1;
     end
+
     if type(bw) <> 4 then
         bw = (bw <> 0);
     end
 
-    // Special cases to pass all‑ones tests (border effect)
-    if operation == "close" & and(bw) then
-        bw2 = bw;
-        return;
-    end
-    if operation == "majority" & and(bw) then
-        bw2 = bw;
-        return;
-    end
-
-    se3 = ones(3,3);
+    se3 = ones(3, 3);
     loop_once = %f;
-    op = convstr(operation, "l");
-    morph_tag = op;
+    op = convstr(operation, "l");   
+
+    morph_tag = op; 
     lut1 = []; lut2 = []; K = [];
     thresh = 0;
-    post_bridge = %f;
+    post_bridge = %f;   
 
     select op
         case "bothat"
@@ -189,7 +139,7 @@ function bw2 = bwmorph(bw, operation, n)
                  0;1;0;0;0;1;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
             lut1 = (v ~= 0);
         case "clean"
-            loop_once = %t; morph_tag = "conv_gt"; K = ones(3,3); K(2,2)=8; thresh=8;
+            loop_once = %t; morph_tag = "conv_gt"; K = ones(3, 3); K(2,2) = 8; thresh = 8;
         case "close"
             loop_once = %t; morph_tag = "close";
         case "diag"
@@ -235,17 +185,18 @@ function bw2 = bwmorph(bw, operation, n)
         case "erode"
             morph_tag = "erode";
         case "fill"
-            loop_once = %t; morph_tag = "conv_ge"; K = [0 1 0; 1 0 1; 0 1 0]; K(2,2)=4; thresh=4;
+            loop_once = %t; morph_tag = "conv_ge"; K = [0 1 0; 1 0 1; 0 1 0]; K(2,2) = 4; thresh = 4;
         case "hbreak"
             loop_once = %t; morph_tag = "lut1";
-            v = repmat([zeros(16,1); ones(16,1)], 16, 1);
+            v = repmat([zeros(16, 1); ones(16, 1)], 16, 1);
             v(382) = 0; v(472) = 0; lut1 = (v ~= 0);
         case "majority"
-            morph_tag = "conv_ge"; K = ones(3,3); thresh = 5;
+            loop_once = %t; morph_tag = "majority"; 
         case "open"
             loop_once = %t; morph_tag = "open";
         case "remove"
             loop_once = %t; morph_tag = "conv_gt"; K = [0 -1 0; -1 4 -1; 0 -1 0]; thresh = 0;
+            
         case "shrink"
             morph_tag = "lut1_and";
             v1 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;0;1;1;1;1;0;1;0;0;1;1; ...
@@ -282,6 +233,7 @@ function bw2 = bwmorph(bw, operation, n)
                   1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1; ...
                   1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
             lut2 = (v2 ~= 0);
+            
         case "skel"
             morph_tag = "lut1_and"; post_bridge = %t;
             v1 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;1;0;0;0;0;1; ...
@@ -318,16 +270,16 @@ function bw2 = bwmorph(bw, operation, n)
                   1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
                   1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
             lut2 = (v2 ~= 0);
+            
         case "skel-lantuejoul"
-            // Fixed dimension bug
             if n > 0 then
-                acc = zeros(size(bw,1), size(bw,2)) ~= 0;
+                acc = zeros(size(bw,1), size(bw,2)) ~= 0;   
                 iter = 1;
                 while iter <= n
                     if ~or(bw(:)) then break; end
                     ebw = bw_erode(bw, se3);
                     acc = acc | (bw & ~bw_dilate(ebw, se3));
-                    bw = ebw;
+                    bw  = ebw;
                     iter = iter + 1;
                 end
                 bw = acc; n = 0;
@@ -338,19 +290,55 @@ function bw2 = bwmorph(bw, operation, n)
             v = repmat([zeros(16,1); ones(16,1)], 16, 1);
             v(18) = 0; v(21) = 0; v(81) = 0; v(273) = 0;
             lut1 = (v ~= 0);
+            
         case "thin"
-            // Use Zhang-Suen algorithm
-            bw2 = bw_thin_zs(bw, n);
-            return;
+            morph_tag = "hit_or_miss";
+            v1 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;1;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;1;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;1;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1];
+            lut1 = (v1 ~= 0);
+            v2 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;1;1;1;0;0;1;1;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0];
+            lut2 = (v2 ~= 0);
+            
         case "tophat"
             loop_once = %t; morph_tag = "tophat";
         else
             error(msprintf("bwmorph: unknown OPERATION ''%s''", operation));
-    end
+    end   
 
+// Loop
     if loop_once & n > 1 then n = 1; end
 
-    bw2_tmp = bw;
+    bw2_tmp = bw;   
+
     i = 1;
     while i <= n
         select morph_tag
@@ -370,22 +358,39 @@ function bw2 = bwmorph(bw, operation, n)
                 bw2_tmp = local_applylut(bw, lut1);
             case "lut1_and"
                 bw2_tmp = bw & local_applylut(local_applylut(bw, lut1), lut2);
+                
+            
+            case "hit_or_miss"
+                bw2_tmp = bw & ~local_applylut(bw, lut1);
+                bw2_tmp = bw2_tmp & ~local_applylut(bw2_tmp, lut2);
+                
             case "conv_gt"
                 bw2_tmp = conv2(double(bw), K, "same") > thresh;
             case "conv_ge"
                 bw2_tmp = conv2(double(bw), K, "same") >= thresh;
+                
+            
+            case "majority"
+                [nr, nc] = size(bw);
+                P = [bw(1,:); bw; bw(nr,:)];
+                P = [P(:,1), P, P(:,nc)];
+                bw2_tmp = conv2(double(P), ones(3,3), "valid") >= 5;
+                
             case "done"
                 bw2_tmp = bw;
         end
+
         if isequal(bw, bw2_tmp) then
             break;
         end
         bw = bw2_tmp;
-        i = i + 1;
+        i  = i + 1;
     end
 
     if post_bridge & n > 0 then
         bw2_tmp = bwmorph(bw2_tmp, "bridge");
     end
+
     bw2 = bw2_tmp;
+
 endfunction
