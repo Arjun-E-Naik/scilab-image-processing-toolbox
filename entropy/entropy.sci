@@ -14,27 +14,28 @@ E - stores entropy value
 
 
 function out = im2uint8(I)
-    out = double(I);
-    
-    // Scale float value to  [0, 255]
-    if (max(out(:)) <= 1.0 & min(out(:)) >= 0.0) then
-        out = round(out .* 255);
+    // Check the data type: 1 is for double/float, 8 is for integer types
+    if type(I) == 1 then
+        out = round(double(I) .* 255);
     else
-        out = round(out);
-        out(out < 0) = 0;
-        out(out > 255) = 255;
+        // If it's already an integer type (uint8), leave its raw values alone
+        out = round(double(I));
     end
+    
+    // Strictly clamp values to the [0, 255] range
+    out(out < 0) = 0;
+    out(out > 255) = 255;
 endfunction
 
 // Computes histogram 
-function counts = imhist_scilab(I, nbins)
+function counts = imhist(I, nbins)
     I = double(I(:)); 
 
     if nbins == 2 then
-        //  count zero vs non-zero pixels
+        // count zero vs non-zero pixels
         counts = zeros(2, 1);
         counts(1) = sum(I == 0);
-        counts(2) = sum(I ~= 0);
+        counts(2) = sum(I <> 0);
     else
         // Map pixel intensities into equally spaced bins
         counts = zeros(nbins, 1);
@@ -85,6 +86,14 @@ function E = entropy(I, nbins)
         error("entropy: nbins must be a positive scalar");
     end
 
+    
+    img_size = size(I);
+    if length(img_size) == 3 & img_size(3) == 3 then
+        I = 0.2989 * double(I(:,:,1)) + 0.5870 * double(I(:,:,2)) + 0.1140 * double(I(:,:,3));
+        is_numeric = %t; 
+        is_logical = %f;
+    end
+
     if ~is_logical then
         I = im2uint8(I); 
     else
@@ -92,8 +101,8 @@ function E = entropy(I, nbins)
     end
     pixels = I(:);
 
-    // Compute histogram and normalize to a probability distribution (P)
-    P = imhist_scilab(pixels, nbins);
+   
+    P = imhist(pixels, nbins);
     
     P(P == 0) = [];
     P = P ./ sum(P(:));
