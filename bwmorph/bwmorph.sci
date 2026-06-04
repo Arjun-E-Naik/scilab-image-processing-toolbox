@@ -22,11 +22,14 @@ bw2_tmp - temporary matrix that hold result of current loop
 
 
 
-function R = bw_dilate(A, se)
+
+
+
+function R = dilate(A, se)
     R = conv2(double(A), double(se), "same") > 0;
 endfunction
 
-function R = bw_erode(A, se)
+function R = erode(A, se)
     [r, c] = size(A);
     P = ones(r + 2, c + 2) ~= 0; 
     P(2:r+1, 2:c+1) = A;
@@ -39,31 +42,31 @@ function R = bw_erode(A, se)
     R = R_padded(2:r+1, 2:c+1);
 endfunction
 
-function R = bw_open(A, se)
+function R = open(A, se)
     pad = 1;
-    P = bw_padarray(A, pad);
-    P = bw_dilate(bw_erode(P, se), se);
+    P = padarray(A, pad);
+    P = dilate(erode(P, se), se);
     [r, c] = size(A);
     R = P(pad+1:r+pad, pad+1:c+pad);
 endfunction
 
-function R = bw_close(A, se)
+function R = close(A, se)
     pad = 1;
-    P = bw_padarray(A, pad);
-    P = bw_erode(bw_dilate(P, se), se);
+    P = padarray(A, pad);
+    P = erode(dilate(P, se), se);
     [r, c] = size(A);
     R = P(pad+1:r+pad, pad+1:c+pad);
 endfunction
 
-function R = bw_tophat(A, se)
-    R = A & ~bw_open(A, se);
+function R = tophat(A, se)
+    R = A & ~open(A, se);
 endfunction
 
-function R = bw_bothat(A, se)
-    R = bw_close(A, se) & ~A;
+function R = bothat(A, se)
+    R = close(A, se) & ~A;
 endfunction
 
-function P = bw_padarray(A, pad)
+function P = padarray(A, pad)
     [r, c] = size(A);
     P = zeros(r + 2*pad, c + 2*pad) ~= 0; 
     P(pad+1:pad+r, pad+1:pad+c) = A;
@@ -277,8 +280,8 @@ function bw2 = bwmorph(bw, operation, n)
                 iter = 1;
                 while iter <= n
                     if ~or(bw(:)) then break; end
-                    ebw = bw_erode(bw, se3);
-                    acc = acc | (bw & ~bw_dilate(ebw, se3));
+                    ebw = erode(bw, se3);
+                    acc = acc | (bw & ~dilate(ebw, se3));
                     bw  = ebw;
                     iter = iter + 1;
                 end
@@ -343,17 +346,17 @@ function bw2 = bwmorph(bw, operation, n)
     while i <= n
         select morph_tag
             case "dilate"
-                bw2_tmp = bw_dilate(bw, se3);
+                bw2_tmp = dilate(bw, se3);
             case "erode"
-                bw2_tmp = bw_erode(bw, se3);
+                bw2_tmp = erode(bw, se3);
             case "open"
-                bw2_tmp = bw_open(bw, se3);
+                bw2_tmp = open(bw, se3);
             case "close"
-                bw2_tmp = bw_close(bw, se3);
+                bw2_tmp = close(bw, se3);
             case "tophat"
-                bw2_tmp = bw_tophat(bw, se3);
+                bw2_tmp = tophat(bw, se3);
             case "bothat"
-                bw2_tmp = bw_bothat(bw, se3);
+                bw2_tmp = bothat(bw, se3);
             case "lut1"
                 bw2_tmp = local_applylut(bw, lut1);
             case "lut1_and"
