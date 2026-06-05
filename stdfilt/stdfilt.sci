@@ -21,7 +21,7 @@ function retval = stdfilt(I, varargin)
         error("stdfilt: domain must be a logical matrix");
     end
     
-    // Safely cast to boolean
+    //cast to boolean
     if type(domain) <> 4 then
         domain = (domain <> 0);
     end
@@ -30,10 +30,10 @@ function retval = stdfilt(I, varargin)
     I = double(I); 
     orig_size = size(I);
 
-    // Calculate padding 
+    
     pad = floor(size(domain) / 2);
 
-    //  padding 
+    
     if padding == "replicate" then
         
         r_idx = [ones(1, pad(1)), 1:orig_size(1), orig_size(1)*ones(1, pad(1))];
