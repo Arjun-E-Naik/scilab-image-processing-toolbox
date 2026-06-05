@@ -54,13 +54,13 @@ function retval = stdfilt(I, varargin)
         I_padded(pad(1)+1:$-pad(1), pad(2)+1:$-pad(2)) = I;
     end
 
-    // offset for even-sized domains
+    
     even = (round(size(domain) / 2) == size(domain) / 2);
     idx1 = (even(1) + 1) : size(I_padded, 1);
     idx2 = (even(2) + 1) : size(I_padded, 2);
     I_padded = I_padded(idx1, idx2); 
 
-    // OPTIMIZED SPATIAL FILTERING VIA CONV2
+    
     domain_double = double(domain);
     domain_flipped = domain_double($:-1:1, $:-1:1);
     
@@ -72,7 +72,7 @@ function retval = stdfilt(I, varargin)
         return;
     end
 
-    // Compute local sum and local sum of squares 
+    
     sum_X  = conv2(I_padded, domain_flipped, "valid");
     sum_X2 = conv2(I_padded.^2, domain_flipped, "valid");
 
