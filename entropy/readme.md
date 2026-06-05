@@ -305,16 +305,8 @@ C = [1 1 1; 2 2 2; 3 3 3]
 E = entropy(C)
 ```
  
-**Distribution:** Three bins each containing 3 pixels → P = [1/3, 1/3, 1/3]  
-**Calculation:**
  
-```
-E = −3 · (1/3 · log₂(1/3))
-  = log₂(3)
-  ≈ 1.5849625 bits
-```
- 
-**Expected output:** `E ≈ 1.5849625`
+**Expected output:** `E = 0`
  
 
 ---
