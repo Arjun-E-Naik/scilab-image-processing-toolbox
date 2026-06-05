@@ -1,4 +1,4 @@
-# `stdfilt` — Local Standard Deviation Filter for Images (Scilab)
+# `stdfilt` — Local Standard Deviation Filter for Images 
 
 ---
 
