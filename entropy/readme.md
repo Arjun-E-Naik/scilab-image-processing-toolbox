@@ -310,3 +310,11 @@ E = entropy(C)
  
 
 ---
+# References
+
+[1] MATLAB Image Processing Toolbox Documentation
+
+[2] GNU Octave Image Package Documentation
+
+---
+---
