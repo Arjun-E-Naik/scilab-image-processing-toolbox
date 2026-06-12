@@ -11,12 +11,11 @@ function A = applylut(BW, LUT)
     end
     
    
-    // Generate power weights sequence, then force column-major filling by transposing
-    // powers = 2 .^ [0:nq-1];
+    //  column-major filling by transposing
      w = matrix ( 2. ^[ 0 : nq - 1 ], n , n );
     
-    // Scilab's filter2/conv2 flips the kernel. We pre-flip 'w' here 
-    // so it scans the image neighborhood exactly like Octave's spatial filter.
+    // Scilab's filter2/conv2 flips the kernel so i pre-flip 'w' here 
+    // so it scans the image neighborhood exactly like Octave's spatial filter
     w_flipped = w(n:-1:1, n:-1:1);
     
     idx = filter2(w_flipped, bool2s(BW));
