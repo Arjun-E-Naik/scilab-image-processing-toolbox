@@ -28,7 +28,7 @@ function total = bwarea(bw)
     fours = conv2(bool2s(bw), four);
     twos  = conv2(bool2s(bw), two);
 
-    // 6. Calculate Bit-Quad Patterns safely
+    // 6. Calculate Bit-Quad Patterns
     nQ1 = sum(bool2s(fours == 1));
     nQ3 = sum(bool2s(fours == 3));
     nQ4 = sum(bool2s(fours == 4));
