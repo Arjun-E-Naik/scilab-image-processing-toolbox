@@ -17,25 +17,6 @@ The result is expressed in **bits**.
  
 ---
  
-
- 
-## entropy()
- 
-```scilab
-// Load the function
-exec('entropy.sci', -1)
- 
-// Compute entropy of a grayscale image matrix
-I = [0 128 64; 200 0 255; 100 50 180];
-E = entropy(I)
-// E ≈ 2.75 bits  (varies with exact distribution)
- 
-// Run the full test suite
-exec('test_entropy.sci', -1)
-```
- 
----
- 
  
 ### `entropy()`
  
@@ -77,7 +58,7 @@ Converts a numeric image array to uint8-equivalent double values (range 0–255)
  
 ---
  
-### `imhist_scilab()` — helper function
+### `imhist()` — helper function
  
 ```
 counts = imhist_scilab(I, nbins)
@@ -95,85 +76,6 @@ For binary/logical images (`nbins = 2`): bin 1 = value 0, bin 2 = any non-zero v
 For uint8 images (`nbins = 256`): bins are uniformly spaced over `[0, 255]`.
  
 ---
- 
-## Variable Reference
- 
-The following variables are in `entropy()` and its helpers:
- 
-| Variable | Scope | Type | Description |
-|----------|-------|------|-------------|
-| `I` | input | double / logical array | Input image (any shape). |
-| `nbins` | input / local | integer scalar | Number of histogram bins. Set to `0` as a sentinel on entry; resolved to `2` or `256` before use. |
-| `E` | output | scalar double | Computed Shannon entropy in bits. |
-| `pixels` | local | column vector | Flattened version of `I` after type conversion (`I(:)`). |
-| `P` | local | column vector | Histogram counts, then (after zero-removal) normalised probabilities. |
-| `bin_width` | local (helper) | scalar double | Width of each histogram bin: `255 / (nbins − 1)`. |
-| `lo`, `hi` | local (helper) | scalar double | Lower and upper edges of the current histogram bin during the counting loop. |
-| `out` | local (im2uint8) | double array | uint8-range image values returned by `im2uint8`. |
-| `counts` | local (imhist) | column vector | Raw bin counts returned by `imhist_scilab`. |
-| `lhs`, `rhs` | local | integers | Number of left-hand / right-hand side arguments, obtained via `argn(0)`. |
- 
----
- 
-## Algorithm Explanation
- 
-```
-Input image I
-      │
-      ▼
-┌─────────────────────────────────────────────────────┐
-│  1. Validate inputs                                  │
-│     – Must be real, numeric or logical               │
-│     – nbins must be a scalar (> 0)                   │
-└────────────────────┬────────────────────────────────┘
-                     │
-                     
-┌─────────────────────────────────────────────────────┐
-│  2. Choose default nbins                             │
-│     – logical image → 2                              │
-│     – any other type → 256                           │
-└────────────────────┬────────────────────────────────┘
-                     │
-                     
-┌─────────────────────────────────────────────────────┐
-│  3. Type conversion  (non-logical images only)       │
-│     im2uint8(I)                                      │
-│     – float [0,1] → round(I × 255)                  │
-│     – integer-coded → clamp to [0,255]               │
-└────────────────────┬────────────────────────────────┘
-                     │
-                     
-┌─────────────────────────────────────────────────────┐
-│  4. Flatten to column vector  pixels = I(:)          │
-└────────────────────┬────────────────────────────────┘
-                     │
-                     
-┌─────────────────────────────────────────────────────┐
-│  5. Build histogram  P = imhist_scilab(pixels, nbins)│
-│     – nbins equally-spaced bins over [0, 255]        │
-│     – logical: bin1 = zeros, bin2 = non-zeros        │
-└────────────────────┬────────────────────────────────┘
-                     │
-                     
-┌─────────────────────────────────────────────────────┐
-│  6. Remove zero-count bins  P(P == 0) = []           │
-│     (avoids 0·log2(0) = NaN / −Inf)                  │
-└────────────────────┬────────────────────────────────┘
-                     │
-                     
-┌─────────────────────────────────────────────────────┐
-│  7. Normalise  P = P / sum(P)                        │
-│     → P is now a probability distribution            │
-└────────────────────┬────────────────────────────────┘
-                     │
-                     
-┌─────────────────────────────────────────────────────┐
-│  8. Compute entropy  E = −sum(P .* log2(P))          │
-└────────────────────┬────────────────────────────────┘
-                     │
-                     ▼
-                  Return E
-```
  
 **Complexity:** O(N) where N is the total number of pixels (for building the histogram). The normalisation and entropy summation are O(nbins) ≤ O(256).
  
@@ -211,21 +113,7 @@ P(xᵢ) =  ───────────────────────
 | Pixels uniformly distributed over all K bins | **log₂(K) bits** — maximum uncertainty |
 | Binary image, equal 0s and 1s | **1 bit** |
  
-### Handling 0 · log₂(0)
- 
-By convention, 0 · log₂(0) = 0 (the limit as p → 0⁺ of p · log₂ p is 0). The code enforces this by **deleting zero-count bins** before computing the sum, avoiding undefined arithmetic.
- 
-### im2uint8 Scaling
- 
-For a floating-point image I ∈ [0, 1]:
- 
-```
-I_uint8(i,j) = round( I(i,j) × 255 )
-```
- 
-This maps the continuous range to 256 integer levels, giving a consistent 256-bin histogram regardless of the original floating-point precision.
- 
----
+
  
 ## Test Cases with Expected Outputs
  
