@@ -29,7 +29,7 @@ A = applylut(BW, LUT)
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `A` | double matrix, same size as `BW` | Output image. Each pixel holds the LUT value selected by its neighbourhood index. Border pixels are zero-padded (see [Border Behaviour](#border-behaviour)). |
+| `A` | double matrix, same size as `BW` | Output image. Each pixel holds the LUT value selected by its neighbourhood index. Border pixels are zero-padded . |
 
 #### Error Conditions
 
@@ -47,7 +47,6 @@ y = filter2(b, x)
 y = filter2(b, x, shape)
 ```
 
-Replicates Octave's `filter2` using Scilab's `conv2`. Octave's `filter2(b, x)` performs **correlation** (no kernel flip), whereas Scilab's `conv2(x, b)` performs **true convolution** (flips the kernel). This helper compensates by pre-flipping `b` before passing it to `conv2`, so the net result is correlation .
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -216,21 +215,7 @@ where k(r, c) is the **column-major position** of cell (r, c) in the 3 × 3 wind
 └─────┴─────┴─────┘
 ```
 
-### LUT Indexing
 
-The result `idx` is a 0-based integer in [0, 511]. The LUT is accessed as:
-
-```
-A(i, j) = LUT( idx(i,j) + 1 )
-```
-
-The `+1` converts from 0-based (Octave convention) to 1-based (Scilab/Matlab convention).
-
-### Why 512 entries?
-
-A 3 × 3 neighbourhood has 9 binary pixels. Each of the 2⁹ = **512** possible neighbourhood patterns maps to a unique index, so the LUT must have exactly 512 entries to cover all patterns.
-
----
 
 ## IMPORTANT TO NOTICE 
 
