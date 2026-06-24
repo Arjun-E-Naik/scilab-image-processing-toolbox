@@ -1,18 +1,4 @@
 # bweuler.sci — Binary Image Euler Number
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Quick Start](#quick-start)
-3. [Reference](#api-reference)
-4. [Variable Reference](#variable-reference)
-5. [Algorithm Explanation](#algorithm-explanation)
-6. [Mathematical Foundation](#mathematical-foundation)
-7. [Quad Lookup Table](#quad-lookup-table)
-10. [Test Cases with Expected Outputs](#test-cases-with-expected-outputs)
-11. [Compatibility and Differences](#compatibility-and-differences)
-12. [References](#references)
 
 ---
 
@@ -37,40 +23,12 @@ where **C** is the number of connected foreground components (objects) and **H**
 | k separate objects, no holes | k |
 | k objects, h total holes | k − h |
 
----
-
-## Quick Start
-
-```scilab
-// Load dependencies and the function
-exec('applylut.sci', -1)
-exec('makelut.sci',  -1)
-exec('bweuler.sci',  -1)
-
-// Solid 4×4 square — one object, no holes
-BW = ones(4, 4);
-E = bweuler(BW)
-// E = 1
-
-// Ring — one object, one hole
-BW = [1 1 1; 1 0 1; 1 1 1];
-E = bweuler(BW)
-// E = 0
-
-// Diagonal pair: result depends on connectivity
-BW = [1 0; 0 1];
-bweuler(BW, 4)   // E = 2  (two separate objects under 4-connectivity)
-bweuler(BW, 8)   // E = 1  (one connected object under 8-connectivity)
-
-// Run the full test suite
-exec('test_bweuler.sce', -1)
-```
 
 ---
 
 
 
-## API Reference
+## Callable Sequences
 
 ### `bweuler()`
 
@@ -115,67 +73,6 @@ Computes the **Euler number** of a 2-D binary image.
 | `BWaux` | local | boolean, (r+1) × (c+1) | Zero-padded copy of `BW`. Top row and left column are `%f`; `BW` occupies `BWaux(2:end, 2:end)`. |
 
 ---
-
-## Algorithm Explanation
-
-```
-Input: BW (2-D binary image), n (connectivity, default 8)
-           │
-           ▼
-┌────────────────────────────────────────────────────────┐
-│  1. Validate inputs                                     │
-│     – rhs ∈ {1, 2}                                     │
-│     – BW : 2-D, type ∈ {real double, boolean, integer} │
-│     – n  : scalar, value ∈ {4, 8}                      │
-└────────────────────┬───────────────────────────────────┘
-                     │
-                     ▼
-┌────────────────────────────────────────────────────────┐
-│  2. Cast to boolean                                     │
-│     BW = (BW <> 0)                                     │
-│     Non-zero → %t (foreground),  0 → %f (background)  │
-└────────────────────┬───────────────────────────────────┘
-                     │
-                     ▼
-┌────────────────────────────────────────────────────────┐
-│  3. Select lookup table                                 │
-│     n = 8 → lut_8  (diagonal quads contribute −2)      │
-│     n = 4 → lut_4  (diagonal quads contribute +2)      │
-│     The two tables agree on all 14 non-diagonal entries │
-│     and differ only at pattern indices 6 and 9          │
-└────────────────────┬───────────────────────────────────┘
-                     │
-                     ▼
-┌────────────────────────────────────────────────────────┐
-│  4. Pad image                                           │
-│     BWaux = zeros(r+1, c+1)  (cast to boolean)         │
-│     BWaux(2:end, 2:end) = BW                            │
-│     A single row of zeros is prepended at the top and   │
-│     a single column of zeros at the left, so that every │
-│     original pixel appears as the bottom-right corner   │
-│     of exactly one valid 2×2 window during processing   │
-└────────────────────┬───────────────────────────────────┘
-                     │
-                     ▼
-┌────────────────────────────────────────────────────────┐
-│  5. Apply lookup table                                  │
-│     out = applylut(BWaux, lut)                          │
-│     For every position (i, j) in BWaux, the 2×2 window  │
-│     is encoded as a 4-bit binary index (column-major)   │
-│     and the corresponding LUT entry is written to out   │
-└────────────────────┬───────────────────────────────────┘
-                     │
-                     ▼
-┌────────────────────────────────────────────────────────┐
-│  6. Accumulate and scale                                │
-│     eul = sum(out) / 4                                  │
-│     The divisor 4 arises because each interior pixel is │
-│     covered by exactly 4 overlapping 2×2 windows        │
-└────────────────────┬───────────────────────────────────┘
-                     │
-                     ▼
-                  Return eul
-```
 
 **Complexity:** O(r × c) — a single pass over the (r+1) × (c+1) padded image with O(1) work per window.
 
@@ -226,71 +123,6 @@ the formulas reduce to:
 
 All other window types (empty, two adjacent pixels, full quad) contribute zero.
 
-### Connectivity Convention and Diagonal Quads
-
-The two connectivity models differ **exclusively** in the treatment of diagonal pairs:
-
-| Quad | Pattern | 8-connectivity | 4-connectivity | Reason |
-|---|---|:---:|:---:|---|
-| Anti-diagonal | `0 1 / 1 0` | **−2** | **+2** | 8-conn: pixels share a diagonal edge → connected; 4-conn: no shared edge → two separate objects |
-| Main diagonal | `1 0 / 0 1` | **−2** | **+2** | Same reasoning |
-
-
-### Boundary Values
-
-| Scenario | E |
-|---|:---:|
-| Empty image (all background) | 0 |
-| Single isolated foreground pixel | 1 |
-| Solid simply-connected region, no holes | 1 |
-| Simply-connected region with k holes | 1 − k |
-| k isolated objects, no holes | k |
-| Two diagonal pixels, 4-connectivity | 2 |
-| Two diagonal pixels, 8-connectivity | 1 |
-
----
-
-## Quad Lookup Table
-
-### 2×2 Window Layout and Bit Encoding
-
-Each 2×2 window is flattened in **column-major order** (matching the MATLAB/Octave `applylut` convention) and mapped to a 4-bit index:
-
-```
-  TL  TR         TL = bit 0  (weight 1)
-  BL  BR         BL = bit 1  (weight 2)
-                 TR = bit 2  (weight 4)
-                 BR = bit 3  (weight 8)
-
-  index = 1·TL + 2·BL + 4·TR + 8·BR
-```
-
-Pattern notation in the table below uses `TL TR / BL BR` (top row / bottom row).
-
-### Complete 16-Pattern Table
-
-| Index | TL | TR | BL | BR | Pattern | Quad class | 8-conn | 4-conn |
-|:---:|:---:|:---:|:---:|:---:|:---:|---|:---:|:---:|
-| 0 | 0 | 0 | 0 | 0 | `00/00` | empty | 0 | 0 |
-| 1 | 1 | 0 | 0 | 0 | `10/00` | 1 pixel | +1 | +1 |
-| 2 | 0 | 0 | 1 | 0 | `00/10` | 1 pixel | +1 | +1 |
-| 3 | 1 | 0 | 1 | 0 | `10/10` | 2 adjacent (left col) | 0 | 0 |
-| 4 | 0 | 1 | 0 | 0 | `01/00` | 1 pixel | +1 | +1 |
-| 5 | 1 | 1 | 0 | 0 | `11/00` | 2 adjacent (top row) | 0 | 0 |
-| **6** | **0** | **1** | **1** | **0** | **`01/10`** | **diagonal (TR + BL)** | **−2** | **+2** |
-| 7 | 1 | 1 | 1 | 0 | `11/10` | 3 pixels | −1 | −1 |
-| 8 | 0 | 0 | 0 | 1 | `00/01` | 1 pixel | +1 | +1 |
-| **9** | **1** | **0** | **0** | **1** | **`10/01`** | **diagonal (TL + BR)** | **−2** | **+2** |
-| 10 | 0 | 0 | 1 | 1 | `00/11` | 2 adjacent (bottom row) | 0 | 0 |
-| 11 | 1 | 0 | 1 | 1 | `10/11` | 3 pixels | −1 | −1 |
-| 12 | 0 | 1 | 0 | 1 | `01/01` | 2 adjacent (right col) | 0 | 0 |
-| 13 | 1 | 1 | 0 | 1 | `11/01` | 3 pixels | −1 | −1 |
-| 14 | 0 | 1 | 1 | 1 | `01/11` | 3 pixels | −1 | −1 |
-| 15 | 1 | 1 | 1 | 1 | `11/11` | full quad | 0 | 0 |
-
-Rows **6** and **9** (bold) are the only entries where the 4-connectivity and 8-connectivity LUTs disagree.
-
----
 
 ## Test Cases with Expected Outputs
 
@@ -489,23 +321,6 @@ The foreground forms one connected object (the 1s in row 2, column 3–5 link th
 
 ---
 
-## Compatibility and Differences
-
-| Feature | Octave `bweuler` | `bweuler.sci` (this port) |
-|---|---|---|
-| Connectivity default | 8 | 8 |
-| Valid `n` values | `4`, `8` | `4`, `8` |
-| Input types supported | logical, numeric | logical, real double, integer types |
-| Non-binary input handling | cast via `logical()` | cast via `BW <> 0` |
-| LUT construction | inline 16-element vector | inline 16-element vector |
-| `applylut` / `makelut` | built-in image package | external `applylut.sci`, `makelut.sci` |
-| Return type | `double` scalar | `double` scalar |
-| `nargin` / `nargout` | native keywords | replaced by `argn(2)` / `argn(1)` |
-| `islogical(x)` | native | replaced by `type(x) == 4` |
-| N-D input (more than 2-D) | not supported | not supported (2-D check enforced) |
-| Error message style | Octave identifier prefix | same text, Scilab `error()` call |
-
----
 
 ## References
 
