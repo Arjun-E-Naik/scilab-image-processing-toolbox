@@ -12,7 +12,13 @@
 This makes the filter a useful **texture measure** and a building block for segmentation, feature extraction, and region analysis.
 
 ---
-
+## Callable Sequence
+```scilab
+E = entropyfilt(I)
+E = entropyfilt(I, domain)
+E = entropyfilt(I, domain, padding)
+```
+---
 ## Mathematical Background
 
 ### Shannon Entropy
@@ -27,37 +33,8 @@ H = - Σ  P(i) · log₂( P(i) )
 where the sum runs over all histogram bins with **P(i) > 0**  
 (zero-probability bins are skipped to avoid `0 · log₂(0) = NaN`).
 
-### Probability Estimation via Histogram
+---
 
-For each pixel neighbourhood the empirical distribution **P** is estimated:
-
-```
-P(i) = count_i / N
-```
-
-where:
-
-| Symbol | Meaning |
-|--------|---------|
-| count_i | number of pixels in the neighbourhood whose intensity falls in bin `i` |
-| N | total number of active pixels in the neighbourhood (`= sum(domain(:))`) |
-
-### Histogram Resolution
-
-| Input class | Number of bins (`nbins`) |
-|-------------|--------------------------|
-| logical | **2** (only values 0 and 1) |
-| All other numeric types | **256** (standard 8-bit depth after `im2uint8` conversion) |
-
-### im2uint8 Scaling
-
-Before the histogram is built, the image is converted to an **8-bit equivalent** (values 0–255):
-
-| Input class | Conversion rule |
-|-------------|----------------|
-| double / single | Assumed in [0, 1]; multiplied by 255 and rounded |
-| Integer types (uint8, uint16, int16, …) | Rescaled linearly to [0, 255] |
-| logical | Kept as {0, 1} with nbins = 2 |
 
 
 
@@ -71,39 +48,6 @@ Before the histogram is built, the image is converted to an **8-bit equivalent**
 
 ---
 
-## Algorithm
-
-```
-entropyfilt(I, domain, padding)
-│
-├─ 1. Validate inputs
-│     └─ I must be numeric or logical
-│     └─ domain must be numeric or logical
-│
-├─ 2. Determine nbins
-│     ├─ logical I  →  nbins = 2
-│     └─ otherwise  →  nbins = 256
-│
-├─ 3. Convert I to uint8-equivalent (im2uint8_scilab)
-│     └─ Result: floating-point matrix with values ∈ [0, 255]
-│
-├─ 4. Pad the image (padarray_scilab)
-│     └─ pad = floor( size(domain) / 2 )
-│     └─ Default mode: "symmetric" (mirror reflection)
-│
-├─ 5. Trim extra row/col for even-sized domains
-│     └─ Matches Octave's idx = (even(k)+1 : size(I, k)) trimming
-│
-└─ 6. For every pixel (r, c) in the original image:
-       │
-       ├─ a. Extract neighbourhood values under active domain mask
-       │
-       ├─ b. Build histogram of size nbins over [0, nbins-1]
-       │
-       ├─ c. Compute P(i) = count_i / N  (for count_i > 0 only)
-       │
-       └─ d. E(r, c) = -Σ P(i) · log₂(P(i))
-```
 
 ### Complexity
 
@@ -118,13 +62,6 @@ For a 512×512 image with a 9×9 domain, K = 81, giving ≈ 21 million pixel acc
 
 ---
 
-
-
-```scilab
-E = entropyfilt(I)
-E = entropyfilt(I, domain)
-E = entropyfilt(I, domain, padding)
-```
 
 ### Return Value
 
@@ -144,26 +81,7 @@ E = entropyfilt(I, domain, padding)
 | `domain` | numeric or logical matrix | `ones(9, 9)` | Neighbourhood mask. Non-zero entries define which pixels participate in the entropy calculation. Typically a square logical matrix of odd size. |
 | `padding` | string | `"symmetric"` | Border extrapolation mode. Controls how the image is extended beyond its edges. See [Padding Modes] |
 
-### Internal Variables
 
-| Variable | Scope | Description |
-|----------|-------|-------------|
-| `nbins` | `entropyfilt` | Number of histogram bins: `2` for logical, `256` otherwise. |
-| `I_u8` | `entropyfilt` | Uint8-equivalent double matrix of the input image, values ∈ `[0, 255]`. |
-| `orig_size` | `entropyfilt` | `[R, C]` — original image dimensions before padding. |
-| `pad` | `entropyfilt` | `[pr, pc]` — row and column padding half-sizes. |
-| `I_padded` | `entropyfilt` | Image after padding and optional even-domain trimming. |
-| `even` | `entropyfilt` | Boolean flag `[1×2]`; true for each domain dimension that is even-sized. |
-| `r_start`, `c_start` | `entropyfilt` | Start indices after even-domain trim (1 or 2). |
-| `E` | `compute_local_entropy` | Output entropy matrix being filled. |
-| `dom_r`, `dom_c` | `compute_local_entropy` | Row/column indices of active (non-zero) domain pixels. |
-| `neigh` | `compute_local_entropy` | Column vector of pixel values in the current neighbourhood. |
-| `counts` | `compute_local_entropy` | Histogram of neighbourhood values (`1 × nbins`). |
-| `P` | `compute_local_entropy` | Probability vector (non-zero bins only). |
-| `out` | `padarray_scilab` | Padded output matrix. |
-| `pr`, `pc` | `padarray_scilab` | Row and column padding amounts. |
-
----
 
 ## Padding Modes
 
@@ -186,7 +104,7 @@ Converts any numeric matrix to uint8-equivalent double values in `[0, 255]`.
 - Integer types: extracted and clamped to `[0, 255]`.
 - `logical`: returned as 0 or 1 (no change).
 
-### `padarray_scilab(I, pad, mode)`
+### `padarray(I, pad, mode)`
 
 Pads a 2-D matrix symmetrically on all four sides.
 
