@@ -1,4 +1,4 @@
-# applylut.sci — Neighbourhood Look-Up Table Application for Scilab
+# applylut.sci — Neighbourhood Look-Up Table Application
 
 ---
 
