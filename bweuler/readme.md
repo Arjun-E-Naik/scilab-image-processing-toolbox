@@ -52,76 +52,15 @@ Computes the **Euler number** of a 2-D binary image.
 |---|---|---|---|
 | `eul` | scalar double | any integer | Euler number E = C − H. Positive when objects outnumber holes; negative when holes outnumber objects. |
 
-#### Remarks
-
-- `BW` is cast to boolean internally via `BW <> 0`; any non-zero pixel, regardless of magnitude or integer type, is treated as foreground.
-- `n` must be exactly `4` or `8`; any other value raises an error.
-- The result is mathematically guaranteed to be an integer but is returned as `double` for Octave/MATLAB compatibility.
 
 ---
 
-## Variable Reference
 
-| Variable | Scope | Type | Description |
-|---|---|---|---|
-| `BW` | input | double / boolean / integer (2-D) | Input binary image, any numeric type. |
-| `n` | input / local | integer scalar | Foreground connectivity (`4` or `8`). Default `8`. |
-| `eul` | output | scalar double | Computed Euler number. |
-| `lhs`, `rhs` | local | integers | Left/right argument counts obtained via `argn(0)`. |
-| `lut` | local | 16×1 double column vector | Quad-contribution lookup table. Content depends on chosen `n`. |
-| `r`, `c` | local | integers | Row and column dimensions of `BW` from `size(BW)`. |
-| `BWaux` | local | boolean, (r+1) × (c+1) | Zero-padded copy of `BW`. Top row and left column are `%f`; `BW` occupies `BWaux(2:end, 2:end)`. |
-
----
 
 **Complexity:** O(r × c) — a single pass over the (r+1) × (c+1) padded image with O(1) work per window.
 
 ---
 
-## Mathematical Foundation
-
-### Euler Characteristic
-
-For a 2-D binary image, the **Euler number** is the topological invariant:
-
-```
-E = C − H
-```
-
-| Symbol | Meaning |
-|---|---|
-| E | Euler number (Euler characteristic) |
-| C | Number of connected foreground components |
-| H | Total number of holes (enclosed background regions not touching the image border) |
-
-
-
-### 2×2 Quad Decomposition
-
-The Euler number is expressed as a sum of local contributions from all overlapping 2×2 windows:
-
-```
-       1
-E  = ─────  ×  Σ  w(Q_k)
-       4       k
-```
-
-where Q_k is the k-th 2×2 window and w(Q_k) ∈ {−2, −1, 0, +1, +2} is its contribution weight from the lookup table. Defining:
-
-| Symbol | Meaning |
-|---|---|
-| Q₁ | Count of 2×2 windows containing exactly 1 foreground pixel |
-| Q₃ | Count of 2×2 windows containing exactly 3 foreground pixels |
-| Q_D | Count of 2×2 windows containing a diagonal pair (2 foreground pixels in non-adjacent corners) |
-
-the formulas reduce to:
-
-```
-4-connectivity:   4E =  Q₁  −  Q₃  +  2 Q_D
-8-connectivity:   4E =  Q₁  −  Q₃  −  2 Q_D
-```
-
-All other window types (empty, two adjacent pixels, full quad) contribute zero.
 
 
 ## Test Cases with Expected Outputs
@@ -323,11 +262,6 @@ The foreground forms one connected object (the 1s in row 2, column 3–5 link th
 
 
 ## References
-
-- Serra, J. (1982). *Image Analysis and Mathematical Morphology*. Academic Press.
-- Pratt, W. K. (2007). *Digital Image Processing* (4th ed.). Wiley-Interscience.
-- Gonzalez, R. C., & Woods, R. E. (2018). *Digital Image Processing* (4th ed.). Pearson.
-- Rosenfeld, A., & Kak, A. C. (1982). *Digital Picture Processing* (2nd ed.). Academic Press.
 - GNU Octave Image Package — `bweuler` function source:
   https://octave.sourceforge.io/image/function/bweuler.html
 - MathWorks — `bweuler` function documentation:
