@@ -193,27 +193,7 @@ disp(applylut(BW7, LUT_line));
 
 ---
 
-## Mathematical Foundation
 
-### Neighbourhood Index Formula
-
-For a 3 × 3 neighbourhood centred at pixel (i, j), the index is:
-
-```
-         8
-idx = Σ  BW(r, c) × 2^k(r,c)
-        k=0
-```
-
-where k(r, c) is the **column-major position** of cell (r, c) in the 3 × 3 window (0 = top-left column, top row; 8 = bottom-right column, bottom row). This is exactly the value produced by a dot product of the boolean neighbourhood with the weight matrix:
-
-```
-┌─────┬─────┬─────┐
-│  1  │  8  │ 64  │
-│  2  │ 16  │ 128 │
-│  4  │ 32  │ 256 │
-└─────┴─────┴─────┘
-```
 
 
 
