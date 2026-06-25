@@ -12,31 +12,13 @@
 This makes the filter a useful **texture measure** and a building block for segmentation, feature extraction, and region analysis.
 
 ---
-## Callable Sequence
+## Calling Sequence
 ```scilab
 E = entropyfilt(I)
 E = entropyfilt(I, domain)
 E = entropyfilt(I, domain, padding)
 ```
 ---
-## Mathematical Background
-
-### Shannon Entropy
-
-Given a discrete random variable with probability mass function **P**, Shannon entropy is defined as:
-
-```
-H = - Σ  P(i) · log₂( P(i) )
-       i
-```
-
-where the sum runs over all histogram bins with **P(i) > 0**  
-(zero-probability bins are skipped to avoid `0 · log₂(0) = NaN`).
-
----
-
-
-
 
 ### Entropy Bounds
 
@@ -94,9 +76,9 @@ For a 512×512 image with a 9×9 domain, K = 81, giving ≈ 21 million pixel acc
 
 ---
 
-## Helper Functions
+## Dependencies
 
-### `im2uint8_scilab(I)`
+### `im2uint8(I)`
 
 Converts any numeric matrix to uint8-equivalent double values in `[0, 255]`.
 
