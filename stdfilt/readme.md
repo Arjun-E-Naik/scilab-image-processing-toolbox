@@ -12,90 +12,15 @@
 This makes the filter a useful **texture and edge descriptor** and a building block for contrast enhancement, noise estimation, segmentation, and adaptive thresholding.
 
 ---
+## Calling Sequence
 
-## Mathematical Background
-
-### Unbiased Sample Standard Deviation
-
-For a neighbourhood of **N** active pixels with values **x₁, x₂, …, xₙ**, the local standard deviation is:
-
+```scilab
+S = stdfilt(I)
+S = stdfilt(I, domain)
+S = stdfilt(I, domain, padding)
 ```
-σ = sqrt( ( Σ xᵢ² - (Σ xᵢ)² / N ) / (N - 1) )
-```
-
-This is the **unbiased (sample) standard deviation**, dividing by **N − 1** (Bessel's correction) rather than N.
-
-### Efficient Computation via Convolution
-
-`stdfilt` exploits the linearity of convolution to compute the required sums in two passes:
-
-| Quantity | Convolution |
-|----------|-------------|
-| Local sum: `Σ xᵢ` | `conv2(I_padded, domain_flipped, "valid")` |
-| Local sum of squares: `Σ xᵢ²` | `conv2(I_padded.² , domain_flipped, "valid")` |
-
-The variance is then assembled from these two maps:
-
-```
-variance = ( sum_X2 - sum_X.² / N ) / (N - 1)
-```
-
-
-### Domain Active Pixel Count
-
-| Symbol | Meaning |
-|--------|---------|
-| `N` | Total number of non-zero pixels in `domain` (`= sum(domain(:))`) |
-| `domain_flipped` | `domain` rotated 180° — used so that `conv2` acts as **correlation**  |
-
-### Edge Case: Degenerate Domain
-
-If **N ≤ 1**, standard deviation is undefined .  
-`stdfilt` handles this by returning a **zero matrix** of the same size as the input.
-
-### Input Type Handling
-
- `stdfilt` converts the input directly to `double` and operates in the continuous intensity domain.
-
 ---
 
-## Algorithm
-
-```
-stdfilt(I, domain, padding)
-│
-├─ 1. Validate inputs
-│     └─ domain must be numeric or logical (type 1, 4, or 8)
-│
-├─ 2. Cast domain to logical (boolean)
-│     └─ Any non-zero element becomes %T
-│
-├─ 3. Convert I to double
-│
-├─ 4. Pad the image
-│     └─ pad = floor( size(domain) / 2 )
-│     └─ Default mode: "replicate" (nearest border value)
-│     └─ Supported: "replicate", "symmetric", "zeros"
-│
-├─ 5. Trim extra row/col for even-sized domains
-│     └─  idx = (even(k)+1 : size(I, k)) trimming
-│
-├─ 6. Compute N = sum(domain)
-│     └─ If N ≤ 1, return zeros(orig_size)
-│
-├─ 7. Compute convolution maps
-│     ├─ domain_flipped = domain rotated 180°
-│     ├─ sum_X  = conv2(I_padded,    domain_flipped, "valid")
-│     └─ sum_X2 = conv2(I_padded.^2, domain_flipped, "valid")
-│
-├─ 8. Assemble unbiased variance
-│     └─ variance = (sum_X2 - sum_X.^2 / N) / (N - 1)
-│
-├─ 9. Clamp negative variance to zero
-│     └─ variance = variance .* (variance > 0)
-│
-└─ 10. Return sqrt(variance)
-```
 
 ### Complexity
 
@@ -106,25 +31,6 @@ stdfilt(I, domain, padding)
 | Total | O(R · C · K) |
 
 ---
-
-## Syntax
-
-```scilab
-S = stdfilt(I)
-S = stdfilt(I, domain)
-S = stdfilt(I, domain, padding)
-```
-
-### Return Value
-
-| Variable | Type | Description |
-|----------|------|-------------|
-| `retval` | double matrix, same size as I | Local standard deviation at every pixel |
-
----
-
-## Variable Reference
-
 ### Input Parameters
 
 | Variable | Type | Default | Description |
@@ -133,25 +39,15 @@ S = stdfilt(I, domain, padding)
 | `domain` | numeric or logical matrix | `ones(3, 3)` (logical) | Neighbourhood mask. Non-zero entries define which pixels participate in the standard deviation calculation. Typically a square logical matrix of odd size. |
 | `padding` | string | `"replicate"` | Border extrapolation mode. Controls how the image is extended beyond its edges.. |
 
-### Internal Variables
-
-| Variable | Scope | Description |
-|----------|-------|-------------|
-| `orig_size` | `stdfilt` | `[R, C]` — original image dimensions before padding. |
-| `pad` | `stdfilt` | `[pr, pc]` — row and column padding half-sizes, computed as `floor(size(domain) / 2)`. |
-| `I_padded` | `stdfilt` | Image after padding and optional even-domain trimming, as a double matrix. |
-| `even` | `stdfilt` | Boolean flag `[1×2]`; true for each domain dimension that is even-sized. |
-| `idx1`, `idx2` | `stdfilt` | Index vectors used to trim `I_padded` after even-domain adjustment. |
-| `domain_double` | `stdfilt` | `domain` cast to `double` for use in `conv2`. |
-| `domain_flipped` | `stdfilt` | `domain_double` rotated 180° so that convolution acts as correlation. |
-| `N` | `stdfilt` | Scalar — number of active (non-zero) pixels in `domain`. |
-| `sum_X` | `stdfilt` | Matrix of local pixel sums over the domain (`conv2` result). |
-| `sum_X2` | `stdfilt` | Matrix of local pixel-squared sums over the domain (`conv2` result). |
-| `variance` | `stdfilt` | Intermediate unbiased variance matrix before square root and clamping. |
-| `retval` | `stdfilt` | Final output — local standard deviation, same size as `I`. |
 
 ---
+### Return Value
 
+| Variable | Type | Description |
+|----------|------|-------------|
+| `retval` | double matrix, same size as I | Local standard deviation at every pixel |
+
+---
 ## Padding Modes
 
 | Mode | Description |
@@ -163,20 +59,7 @@ S = stdfilt(I, domain, padding)
 
 ---
 
-## Helper Behaviour
 
-### Padding (inline, not a separate function)
-
-
-- **replicate**: constructs `r_idx` / `c_idx` by clamping out-of-bounds indices to 1 or `orig_size(k)`.
-- **symmetric**: constructs mirror index ranges on both sides.
-- **zeros**: allocates a zero matrix and inserts `I` into the centre block.
-
-### Even-Domain Trimming
-
-When any dimension of `domain` is even-sized, the padded image is trimmed by one row or column at the start (index 2 onward instead of 1). This replicates Octave's `stdfilt` offset behaviour for even kernels, ensuring the output is always `orig_size`.
-
----
 
 ## Test Cases with Expected Outputs
 
