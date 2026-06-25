@@ -40,8 +40,11 @@ E = entropy(I, nbins)
 |----------|------|-------------|
 | `E` | scalar double | Shannon entropy in **bits**. Range: `[0, log2(nbins)]`. |
  
+ ---
+## Dependencies
+
  
-### `im2uint8()` —  helper function
+### `im2uint8()` 
  
 ```
 out = im2uint8(I)
@@ -58,7 +61,7 @@ Converts a numeric image array to uint8-equivalent double values (range 0–255)
  
 ---
  
-### `imhist()` — helper function
+### `imhist()` 
  
 ```
 counts = imhist_scilab(I, nbins)
@@ -80,38 +83,6 @@ For uint8 images (`nbins = 256`): bins are uniformly spaced over `[0, 255]`.
 **Complexity:** O(N) where N is the total number of pixels (for building the histogram). The normalisation and entropy summation are O(nbins) ≤ O(256).
  
 ---
- 
-## Mathematical Foundation
- 
-### Shannon Entropy
- 
-Given a discrete random variable X with probability mass function P(xᵢ), Shannon entropy is defined as:
- 
-```
-        K
-E = −  Σ  P(xᵢ) · log₂ P(xᵢ)
-       i=1
-```
- 
-where the sum runs over all **non-zero** probability values. The unit is **bits** (base-2 logarithm).
- 
-### Estimation via Histogram
- 
-The true distribution P is unknown; it is estimated from the image using a histogram:
- 
-```
-           count of pixels in bin i
-P(xᵢ) =  ─────────────────────────
-              total pixel count
-```
- 
-### Boundary Values
- 
-| Condition | Entropy |
-|-----------|---------|
-| All pixels identical (1 occupied bin) | **0 bits** — no uncertainty |
-| Pixels uniformly distributed over all K bins | **log₂(K) bits** — maximum uncertainty |
-| Binary image, equal 0s and 1s | **1 bit** |
  
 
  
