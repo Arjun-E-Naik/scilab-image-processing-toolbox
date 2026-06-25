@@ -1,4 +1,4 @@
-# makelut.sci — Lookup Table Generator for Neighbourhood Functions in Scilab
+# makelut.sci — Lookup Table Generator for Neighbourhood Functions
 
 ---
 
@@ -18,30 +18,11 @@ The resulting LUT encodes an entire image-processing rule in a compact array tha
 
 ---
 
-## Quick Start
 
-```scilab
-// Load the function
-exec('makelut.sci', -1)
-
-// Build a LUT that returns the centre pixel of every 3×3 neighbourhood
-function y = center_pixel(x)
-    y = x(5);
-endfunction
-
-lut = makelut(center_pixel, 3);
-disp(length(lut));   // 512
-disp(sum(lut));      // 256
-
-// Run the full test suite
-exec('test_makelut.sci', -1)
-```
 
 ---
 
-## API Reference
-
-### `makelut()`
+## Calling Sequence
 
 ```
 lut = makelut(fun, n)
@@ -72,15 +53,13 @@ lut = makelut(fun, n, arg1, arg2, arg3)
 | `n < 2` | `makelut: n should be a natural number >= 2` |
 
 ---
+## Dependencies
 
-### `feval()` — internal helper
+### `feval()`
 
 ```
 retval = feval(fun, idx, varargin)
 ```
-
-A lightweight dispatcher that invokes `fun(idx)`, `fun(idx, arg1)`, `fun(idx, arg1, arg2)`, or `fun(idx, arg1, arg2, arg3)` depending on the number of extra arguments. It mirrors the role of MATLAB/Octave's built-in `feval` while remaining compatible with Scilab's function-call model.
-
 | Parameter | Description |
 |-----------|-------------|
 | `fun` | Function handle to invoke. |
@@ -91,143 +70,8 @@ A lightweight dispatcher that invokes `fun(idx)`, `fun(idx, arg1)`, `fun(idx, ar
 Passing more than 3 extra arguments raises: `feval: too many arguments`.
 
 ---
-
-## Variable Reference
-
-| Variable | Scope | Type | Description |
-|----------|-------|------|-------------|
-| `fun` | input | function handle | User-supplied neighbourhood function. |
-| `n` | input | integer scalar | Neighbourhood side length (≥ 2). |
-| `varargin` | input | cell array | Optional extra arguments forwarded to `fun`. |
-| `nq` | local | integer | Total neighbourhood cells: n². |
-| `c` | local | integer | Total LUT entries: 2^(n²). |
-| `lut` | output | double column vector, length `c` | The computed lookup table. |
-| `w` | local | n×n int32 matrix | Weight matrix. `w` is filled column-major with the values 2^(nq−1), 2^(nq−2), …, 2^0, so each cell holds a unique power-of-two bit mask. |
-| `i` | loop variable | integer | Current neighbourhood index in the range 0 to c−1. |
-| `idx` | local | n×n logical matrix | Decoded neighbourhood for index `i`: `idx(r,c) = (bitand(w(r,c), i) > 0)`. |
-| `lhs`, `rhs` | local | integers | Left-hand / right-hand argument counts, obtained via `argn(0)`. |
-| `nargs` | local (feval) | integer | Number of extra arguments supplied to `fun`. |
-| `retval` | local (feval) | scalar | Return value of `fun` for the current neighbourhood. |
-
----
-
-## Algorithm Explanation
-
-```
-Inputs: fun, n [, optional args]
-            │
-            ▼
-┌────────────────────────────────────────────────────────┐
-│  1. Validate inputs                                     │
-│     – rhs >= 2  (both fun and n must be supplied)       │
-│     – n >= 2    (neighbourhood must have >= 4 cells)    │
-└───────────────────────┬────────────────────────────────┘
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│  2. Compute dimensions                                  │
-│     nq = n²           (cells per neighbourhood)         │
-│     c  = 2^nq         (total distinct binary patterns)  │
-└───────────────────────┬────────────────────────────────┘
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│  3. Build weight matrix  w  (n×n, int32)                │
-│     Filled column-major with 2^(nq-1), …, 2^1, 2^0.   │
-│     Each cell gets a unique power-of-two bit mask so    │
-│     that integer i encodes exactly one n×n pattern.     │
-└───────────────────────┬────────────────────────────────┘
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│  4. For i = 0, 1, …, c−1:                              │
-│                                                         │
-│     a. Decode                                           │
-│        idx = (bitand(w, i) > 0)                         │
-│        → idx(r,c) = %T  iff bit w(r,c) is set in i     │
-│                                                         │
-│     b. Evaluate                                         │
-│        lut(i+1) = feval(fun, idx, optional_args)        │
-│        → calls user function with n×n logical matrix    │
-└───────────────────────┬────────────────────────────────┘
-                        │
-                        ▼
-                    Return lut
-```
-
 **Complexity:** O(c) = O(2^(n²)) iterations, each performing O(n²) bitwise operations plus one function call.
 For n = 2: 16 iterations. For n = 3: 512 iterations. For n = 4: 65 536 iterations.
-
----
-
-## Mathematical Foundation
-
-### Neighbourhood Encoding
-
-Every binary n×n neighbourhood is placed in bijection with an integer i ∈ {0, 1, …, 2^(n²)−1} via the weight matrix **W**, whose cells are filled column-major with descending powers of two:
-
-```
-         n   n
-i   =   Σ   Σ  x(r,c) · W(r,c)
-        r=1 c=1
-```
-
-The decoding step reverses this mapping using bitwise AND:
-
-```
-x(r,c) = 1    iff    bitand( W(r,c), i ) ≠ 0
-```
-
-### Weight Matrix Layout (n = 3)
-
-The 3×3 weight matrix, filled column-major with 2^8, 2^7, …, 2^0:
-
-```
-        Col 1   Col 2   Col 3
-Row 1 │  256      32      4  │
-Row 2 │  128      16      2  │
-Row 3 │   64       8      1  │
-```
-
-Column-major linear positions and their weights:
-
-| Linear index | (row, col) | Weight | Bit position |
-|:---:|:---:|:---:|:---:|
-| 1 | (1,1) | 256 | bit 8 — top-left corner |
-| 2 | (2,1) | 128 | bit 7 |
-| 3 | (3,1) | 64  | bit 6 |
-| 4 | (1,2) | 32  | bit 5 |
-| **5** | **(2,2)** | **16** | **bit 4 — centre** |
-| 6 | (3,2) | 8   | bit 3 |
-| 7 | (1,3) | 4   | bit 2 |
-| 8 | (2,3) | 2   | bit 1 |
-| 9 | (3,3) | 1   | bit 0 — bottom-right |
-
-### LUT Indexing Convention
-
-Scilab arrays are 1-indexed, so the neighbourhood integer i maps to:
-
-```
-lut( i + 1 )  =  fun( decode(i) )
-```
-
-### LUT Size vs. Neighbourhood Size
-
-| n | n² (cells) | LUT length |
-|:---:|:---:|:---:|
-| 2 | 4  | 16 |
-| 3 | 9  | 512 |
-| 4 | 16 | 65 536 |
-
-### Counting Non-Zero LUT Entries
-
-For functions that count set bits, the number of positive LUT entries follows from binomial coefficients. For example, with n = 3 (9-bit neighbourhood) and threshold k:
-
-```
-  number of patterns with exactly k bits set  =  C(9, k)
-```
-
-This makes it straightforward to predict the LUT sum analytically (see test cases below).
 
 ---
 
