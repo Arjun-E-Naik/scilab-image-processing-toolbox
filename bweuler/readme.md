@@ -39,6 +39,13 @@ eul = bweuler(BW, n)
 
 Computes the **Euler number** of a 2-D binary image.
 
+---
+## Dependencies
+```
+applylut()
+```
+
+---
 #### Parameters
 
 | Parameter | Type | Default | Description |
