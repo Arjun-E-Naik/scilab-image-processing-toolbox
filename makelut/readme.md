@@ -89,6 +89,7 @@ function y = center_pixel(x)
 endfunction
 lut = makelut(center_pixel, 3);
 disp(lut(1:16));
+disp(lut);
 ```
 
 **Logic:** Returns 1 exactly when the centre cell's bit (weight 16) is set in i.  
@@ -106,6 +107,7 @@ function y = always_zero(x)
     y = 0;
 endfunction
 lut = makelut(always_zero, 3);
+disp(lut);
 ```
 
 **Logic:** Returns 0 for every neighbourhood pattern.  
@@ -122,6 +124,7 @@ function y = always_one(x)
     y = 1;
 endfunction
 lut = makelut(always_one, 3);
+disp(lut);
 ```
 
 **Logic:** Returns 1 for every neighbourhood pattern.  
@@ -138,6 +141,7 @@ function y = majority(x)
     y = (sum(x(:)) >= 5);
 endfunction
 lut = makelut(majority, 3);
+disp(lut);
 ```
 
 **Logic:** Returns 1 when at least 5 of the 9 cells are set.  
@@ -161,6 +165,7 @@ function y = single_pixel(x)
     y = (sum(x(:)) == 1);
 endfunction
 lut = makelut(single_pixel, 3);
+disp(lut);
 ```
 
 **Logic:** Returns 1 only for the 9 patterns where exactly one bit is set (one per cell position, i.e. i ∈ {1, 2, 4, 8, 16, 32, 64, 128, 256}).  
@@ -177,6 +182,7 @@ function y = all_on(x)
     y = and(x(:));
 endfunction
 lut = makelut(all_on, 3);
+disp(lut);
 ```
 
 **Logic:** Returns 1 only when all 9 bits are set, i.e. only for i = 511 (binary 111111111).  
@@ -193,6 +199,7 @@ function y = any_on(x)
     y = or(x(:));
 endfunction
 lut = makelut(any_on, 3);
+disp(lut);
 ```
 
 **Logic:** Returns 0 only for i = 0 (all bits clear); returns 1 for every other pattern.  
@@ -209,6 +216,7 @@ function y = corner(x)
     y = x(1);   // column-major index 1 = position (1,1) = top-left corner
 endfunction
 lut = makelut(corner, 3);
+disp(lut);
 ```
 
 **Logic:** Returns 1 when the top-left cell's bit (weight 256 = 2^8) is set, i.e. for all i ≥ 256.  
@@ -225,6 +233,7 @@ function y = parity(x)
     y = (modulo(sum(x(:)), 2) == 0);
 endfunction
 lut = makelut(parity, 3);
+disp(lut);
 ```
 
 **Logic:** Returns 1 when the popcount of i is even (0, 2, 4, 6, or 8 bits set).  
@@ -247,7 +256,8 @@ C(9,0) + C(9,2) + C(9,4) + C(9,6) + C(9,8)
 function y = rule2(x)
     y = (sum(x(:)) >= 2);
 endfunction
-lut = makelut(rule2, 2);   // n=2 → 2^4 = 16 entries
+lut = makelut(rule2, 2);
+disp(lut);
 ```
 
 **Logic:** Uses a **2×2** neighbourhood (nq = 4 cells, c = 16 patterns). Returns 1 when 2 or more bits are set.  
@@ -281,11 +291,4 @@ C(4,2) + C(4,3) + C(4,4)
 
 ---
 
-## References
 
-- GNU Octave — `makelut` function documentation
-- MATLAB Image Processing Toolbox — `makelut` / `applylut`
-- Gonzalez & Woods, *Digital Image Processing*, 3rd ed., §11 (Morphological Image Processing)
-- Scilab `bitand`, `matrix`, `feval` documentation — https://www.scilab.org/scilab/help
-
----
