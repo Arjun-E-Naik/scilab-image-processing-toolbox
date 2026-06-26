@@ -31,16 +31,9 @@ A = applylut(BW, LUT)
 |----------|------|-------------|
 | `A` | double matrix, same size as `BW` | Output image. Each pixel holds the LUT value selected by its neighbourhood index. Border pixels are zero-padded . |
 
-#### Error Conditions
+## Dependencies
 
-| Condition | Error message |
-|-----------|---------------|
-| Fewer or more than 2 arguments supplied | `"Arguments must be Two.."` |
-| `LUT` length is not an exact power of 4 (i.e. `log₂(length)` is not a perfect square) | `"applylut: LUT length is not as expected."` |
-
----
-
-### `filter2()` — companion helper
+### `filter2()` 
 
 ```
 y = filter2(b, x)
@@ -58,41 +51,66 @@ y = filter2(b, x, shape)
 
 ---
 
+## Importance to Notice
+`applylut()` function need input image and `lookup table` .
+For the test cases , the octave version use the below syntax to construct the lookup table, but this syntax is invalid in scilab.
+```octave
+lut = makelut (@(x) sum (x (:)) >= 3, 3); %! for construct the LUT ,here `@(x) sum(x(:))>3` 
+S = applylut (eye (5), lut);
+disp (S);
+```
+for  constructing lookup table octave uses `makelut()` function, in scilab to construct lookup table. You have to explicitly create `condition function` and then pass to `makelut()`.
+For example,
+```scilab
+function res = fun(idx)
+    res = double(sum(idx) >= 3);
+endfunction
 
+LUT = makelut(fun, 3);
+BW2 = eye(5, 5);
+disp(applylut(BW2, LUT));
 
-## Standard LUT Definitions
-
-The test suite and typical usage rely on a small set of standard LUTs. All are vectors of length 512 (indices 0–511, stored 1-indexed in Scilab):
-
-| LUT name | Construction | Effect |
-|----------|-------------|--------|
-| `LUT_ones` | `zeros(512,1); LUT(512) = 1` | Output `1` only when all 9 neighbours are `1` (index 511 = all bits set). |
-| `LUT_inv` | `ones(512,1); LUT(512) = 0` | Output `1` everywhere *except* when all 9 neighbours are `1`. Logical inverse of `LUT_ones`. |
-| `LUT_center` | `zeros(512,1); LUT(17) = 1` | Output `1` only when the centre pixel alone is `1` (index 16 = bit 4 = weight 16). |
-| `LUT_line` | `zeros(512,1); LUT(147) = 1` | Output `1` for one specific neighbourhood pattern (index 146, middle row of a 4-row block). |
-
----
-
+```
 ## Test Cases with Expected Outputs
-
-### Test 1 — Alternating 3 × 3 matrix, `LUT_ones`
+```
+// For execution of script and test cases.
+exec("applylut.sci",-1); 
+```
+### Test 1 — Alternating 3 × 3 matrix, 
 
 ```scilab
+function res = fun(idx)
+    res = double(and(idx)); // Returns 1 only if ALL elements in the 3x3 grid are 1
+endfunction
+
+LUT = makelut(fun, 3);
+
 BW1 = [%f, %t, %f; %t, %f, %t; %f, %t, %f];
-disp(applylut(BW1, LUT_ones));
+disp(applylut(BW1, LUT));
 ```
 
 No pixel has all nine neighbours set to `1`, so no index reaches 511.
 
-**Expected output:** all zeros (3 × 3 matrix of `0`).
+**Expected output:** 
+```
+0  0  0
+0  0  0
+0  0  0
+```
 
 ---
 
-### Test 2 — All-ones 3 × 3 matrix, `LUT_ones`
+### Test 2 — All-ones 3 × 3 matrix
 
 ```scilab
+function res = fun(idx)
+    res = double(and(idx)); 
+endfunction
+
+LUT = makelut(fun, 3);
+
 BW2 = ones(3, 3) == 1;
-disp(applylut(BW2, LUT_ones));
+disp(applylut(BW2, LUT));
 ```
 
 Only the centre pixel has all nine neighbours equal to `1` (the border pixels are zero-padded). Index 511 is reached only at position (2,2).
@@ -106,27 +124,42 @@ Only the centre pixel has all nine neighbours equal to `1` (the border pixels ar
 
 ---
 
-### Test 3 — All-zeros 4 × 5 matrix, `LUT_ones`
+### Test 3 — All-zeros 4 × 5 matrix.
 
 ```scilab
+function res = fun(idx)
+    res = double(and(idx)); 
+endfunction
+
+LUT = makelut(fun, 3);
 BW3 = zeros(4, 5) == 1;
-disp(applylut(BW3, LUT_ones));
+disp(applylut(BW3, LUT));
 ```
 
-Every neighbourhood index is 0. `LUT_ones(1) = 0`.
+Every neighbourhood index is 0. `LUT(1) = 0`.
 
-**Expected output:** all zeros (4 × 5 matrix of `0`).
+**Expected output:** 
+```
+   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.
+```
 
 ---
 
-### Test 4 — All-ones 3 × 3 matrix, `LUT_inv`
+### Test 4 — All-ones 3 × 3 matrix.
 
 ```scilab
+function res = fun(idx)
+    res = double(~and(idx));
+endfunction
+LUT = makelut(fun, 3);
 BW4 = ones(3, 3) == 1;
-disp(applylut(BW4, LUT_inv));
+disp(applylut(BW4, LUT));
 ```
 
-`LUT_inv` is `1` everywhere except index 511. The centre pixel reaches index 511 → `0`; all border pixels have indices < 511 → `1`.
+`LUT` is `1` everywhere except index 511. The centre pixel reaches index 511 → `0`; all border pixels have indices < 511 → `1`.
 
 **Expected output:**
 ```
@@ -137,14 +170,16 @@ disp(applylut(BW4, LUT_inv));
 
 ---
 
-### Test 5 — Isolated centre pixel, `LUT_center`
+### Test 5 — Isolated centre pixel,
 
 ```scilab
+LUT = zeros(512, 1);
+LUT(17) = 1;
 BW5 = [%f, %f, %f; %f, %t, %f; %f, %f, %f];
-disp(applylut(BW5, LUT_center));
+disp(applylut(BW5, LUT));
 ```
 
-The centre pixel contributes weight 16 (bit 4). Every neighbourhood that contains only the centre pixel active has index 16. `LUT_center(17) = 1`.
+The centre pixel contributes weight 16 (bit 4). Every neighbourhood that contains only the centre pixel active has index 16. `LUT(17) = 1`.
 
 **Expected output:**
 ```
@@ -155,16 +190,18 @@ The centre pixel contributes weight 16 (bit 4). Every neighbourhood that contain
 
 ---
 
-### Test 6 — 5 × 5 all-ones matrix, `LUT_ones` (border padding demonstration)
+### Test 6 — 5 × 5 all-ones matrix, (border padding demonstration)
 
 ```scilab
+LUT = zeros(512, 1);
+LUT(512) = 1;
 BW6 = ones(5, 5) == 1;
-disp(applylut(BW6, LUT_ones));
+disp(applylut(BW6, LUT));
 ```
 
 Demonstrates the zero-padding behaviour. Only the inner 3 × 3 core has all nine neighbours active; the border ring is partially zero-padded.
 
-**Expected output (Scilab):**
+**Expected output:**
 ```
 0  0  0  0  0
 0  1  1  1  0
@@ -173,43 +210,63 @@ Demonstrates the zero-padding behaviour. Only the inner 3 × 3 core has all nine
 0  0  0  0  0
 ```
 
-*(Octave with replicate padding would produce all ones.)*
+
 
 ---
 
-### Test 7 — Horizontal line detection, `LUT_line`
+### Test 7 — Horizontal line detection, 
 
 ```scilab
+LUT = zeros(512, 1);
+LUT(147) = 1;
 BW7 = [%f, %f, %f, %f;
        %t, %t, %t, %t;
        %f, %f, %f, %f;
        %f, %f, %f, %f];
-disp(applylut(BW7, LUT_line));
+disp(applylut(BW7, LUT));
 ```
 
-`LUT_line` fires at index 146. The second row provides the active neighbourhood pattern. Interior pixels of that row (with zero-padded borders accounted for) match index 146.
+`LUT` fires at index 146. The second row provides the active neighbourhood pattern. Interior pixels of that row (with zero-padded borders accounted for) match index 146.
 
-**Expected output:** a matrix where specific positions in the second-row region are `1`; all other entries are `0`. Exact values depend on which column positions accumulate index 146 given zero-padding.
-
+**Expected output:** 
+```
+0.   0.   0.   0.
+0.   1.   1.   0.
+0.   0.   0.   0.
+0.   0.   0.   0.
+```
 ---
 
 
+### Test 8 — Error detection, 
+```scilab
+img = [1,0,1; 0,1,0; 1,0,1];
+try
+    applylut(img);
+catch
+    [msg, err] = lasterror();
+    mprintf("Caught: %s\n", msg);
+end
+```
+**Expected output:** 
+```
+Synatx Error
+```
 
+### Test 9 — Error detection,
+```scilab
+img = [1,0,1; 0,1,0; 1,0,1];
+lut = zeros(100, 1); 
+try
+    applylut(img, lut);
+catch
+    [msg, err] = lasterror();
+    mprintf("Caught: %s\n", msg);
+end
 
-
-## IMPORTANT TO NOTICE 
-
-| Limitation | Detail |
-|------------|--------|
-
-| Logical input required | `BW` must be a Scilab logical matrix; `bool2s` is applied internally. Passing a numeric 0/1 matrix without explicit conversion may produce unexpected results. |
-
----
-
-## References
-
-- GNU Octave — `applylut` documentation and reference implementation
-- Scilab `conv2` documentation — convolution vs correlation distinction
-- Shannon, C. E. (1948). *A Mathematical Theory of Communication.* Bell System Technical Journal.
-
+```
+**Expected output:** 
+```
+Synatx Error
+```
 ---
