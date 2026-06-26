@@ -79,11 +79,11 @@ exec("applylut.sci",-1);
 ### Test 1 — Alternating 3 × 3 matrix, 
 
 ```scilab
-function res = fun(idx)
+function res = func(idx)
     res = double(and(idx)); // Returns 1 only if ALL elements in the 3x3 grid are 1
 endfunction
 
-LUT = makelut(fun, 3);
+LUT = makelut(func, 3);
 
 BW1 = [%f, %t, %f; %t, %f, %t; %f, %t, %f];
 disp(applylut(BW1, LUT));
@@ -103,11 +103,11 @@ No pixel has all nine neighbours set to `1`, so no index reaches 511.
 ### Test 2 — All-ones 3 × 3 matrix
 
 ```scilab
-function res = fun(idx)
+function res = func(idx)
     res = double(and(idx)); 
 endfunction
 
-LUT = makelut(fun, 3);
+LUT = makelut(func, 3);
 
 BW2 = ones(3, 3) == 1;
 disp(applylut(BW2, LUT));
@@ -127,11 +127,11 @@ Only the centre pixel has all nine neighbours equal to `1` (the border pixels ar
 ### Test 3 — All-zeros 4 × 5 matrix.
 
 ```scilab
-function res = fun(idx)
+function res = func(idx)
     res = double(and(idx)); 
 endfunction
 
-LUT = makelut(fun, 3);
+LUT = makelut(func, 3);
 BW3 = zeros(4, 5) == 1;
 disp(applylut(BW3, LUT));
 ```
@@ -151,10 +151,10 @@ Every neighbourhood index is 0. `LUT(1) = 0`.
 ### Test 4 — All-ones 3 × 3 matrix.
 
 ```scilab
-function res = fun(idx)
+function res = func(idx)
     res = double(~and(idx));
 endfunction
-LUT = makelut(fun, 3);
+LUT = makelut(func, 3);
 BW4 = ones(3, 3) == 1;
 disp(applylut(BW4, LUT));
 ```
