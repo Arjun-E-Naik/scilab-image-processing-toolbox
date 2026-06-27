@@ -1,112 +1,477 @@
-/*
-entropy
-I - input image
-nbins - used to estimate pixel value distribution , 2 bins for logical and 256 bins for numeric types.
-lhs and rhs - stores the arguments 
-Type - stores datatype of input array
-is_logical,is_numeric -  boolean flags to Check
-pixels - a flatened 1D vector used to histogram calculation
-P - stores probability distribution
-E - stores entropy value
-*/
 
-
-
-
-function out = im2uint8(I)
-    // Check the data type: 1 is for double/float, 8 is for integer types
-    if type(I) == 1 then
-        out = round(double(I) .* 255);
-    else
-        // If it's already an integer type (uint8), leave its raw values alone
-        out = round(double(I));
-    end
-    
-    // Strictly clamp values to the [0, 255] range
-    out(out < 0) = 0;
-    out(out > 255) = 255;
-endfunction
-
-// Computes histogram 
-function counts = imhist(I, nbins)
-    I = double(I(:)); 
-
-    if nbins == 2 then
-        // count zero vs non-zero pixels
-        counts = zeros(2, 1);
-        counts(1) = sum(I == 0);
-        counts(2) = sum(I <> 0);
-    else
-        // Map pixel intensities into equally spaced bins
-        counts = zeros(nbins, 1);
-        bin_width = 255 / (nbins - 1);
-        
-        for k = 1:nbins
-            lo = (k - 1) * bin_width - 0.5;
-            hi = k * bin_width - 0.5;
-            
-            if k == nbins then
-                counts(k) = sum(I >= lo & I <= 255);
-            else
-                counts(k) = sum(I >= lo & I < hi);
-            end
-        end
-    end
-endfunction
-
-
-function E = entropy(I, nbins)
-    [lhs, rhs] = argn(0);
-    
-    if rhs < 1 | rhs > 2 then
-        error("entropy: usage: E = entropy(I) or E = entropy(I, nbins)");
-    end
-
-    // Input type validation (1: real/complex, 8: integers, 5: sparse, 4: boolean)
-    Type = type(I);
-    is_numeric = (Type == 1 | Type == 8 | Type == 5);
-    is_logical = (Type == 4);
-
-    if ~(is_numeric | is_logical) then
-        error("entropy: I must be numeric or logical");
-    end
-    if is_numeric & ~isreal(I) then
-        error("entropy: I must be real (non-complex)");
-    end
+function retval = entropy(I, nbins)
+    [lhs, rhs] = argn();
 
     if rhs < 2 then
-        if is_logical then
+        nbins = 0;
+    end
+
+    if (rhs < 1 | rhs > 2) then
+        error("entropy: usage: entropy (I) or entropy (I, nbins)");
+    end
+
+    
+    if ((~isnumeric(I) & ~islogical(I)) | issparse(I) | (~islogical(I) & ~isreal(I))) then
+        error("entropy: I must be real, non-sparse and numeric");
+    end
+
+    if (~isscalar(nbins)) then
+        error("entropy: NBINS must be a scalar");
+    end
+
+    if (nbins <= 0) then
+        if (islogical(I)) then
             nbins = 2;
         else
             nbins = 256;
         end
     end
 
-    if ~isscalar(nbins) | nbins <= 0 then
-        error("entropy: nbins must be a positive scalar");
+    if (~islogical(I)) then
+        I = im2uint8(I);
     end
 
-    
-    img_size = size(I);
-    if length(img_size) == 3 & img_size(3) == 3 then
-        I = 0.2989 * double(I(:,:,1)) + 0.5870 * double(I(:,:,2)) + 0.1140 * double(I(:,:,3));
-        is_numeric = %t; 
-        is_logical = %f;
-    end
+    P = imhist(I(:), nbins);
 
-    if ~is_logical then
-        I = im2uint8(I); 
-    else
-        I = bool2s(I); 
-    end
-    pixels = I(:);
+    P = P(P ~= 0);
 
-   
-    P = imhist(pixels, nbins);
-    
-    P(P == 0) = [];
     P = P ./ sum(P(:));
 
-    // Calculate Shannon entropy
-    E = -sum(P .* log2(P));
+    retval = -sum(P .* log2(P));
+endfunction
+
+
+
+// IMHIST FUNCTION
+
+
+function [varargout] = imhist(img, b)
+
+    indexed = %f;
+
+    [lhs, rhs] = argn();
+
+    if (rhs < 1 | rhs > 2) then
+        error("imhist: wrong number of arguments.");
+    elseif (rhs == 1) then
+        if (islogical(img)) then
+            b = 2;
+        else
+            b = 256;
+        end
+    elseif (rhs == 2) then
+        if (iscolormap(b)) then
+            if (~isind(img)) then
+                error("imhist: second argument is a colormap but first argument is not an indexed image.");
+            end
+            indexed = %t;
+
+            
+            if ((isfloat(img) & max(double(img(:))) > size(b, 1)) | ..
+                (isinteger(img) & max(double(img(:))) > size(b, 1) - 1)) then
+                warning("imhist: largest index in image exceeds length of colormap.");
+            end
+        elseif (isnumeric(b) & isscalar(b) & fix(b) == b & b > 0) then
+            if (islogical(img) & b ~= 2) then
+                error("imhist: there can only be 2 bins when input image is binary")
+            end
+        else
+            error("imhist: second argument must be a positive integer scalar or a colormap");
+        end
+    end
+
+  
+    if (indexed) then
+        if (isinteger(img)) then
+            bins = 0:size(b, 1) - 1;
+        else
+            bins = 1:size(b, 1);
+        end
+    else
+        if (isinteger(img)) then
+            bins = linspace(intmin(class(img)), intmax(class(img)), b);
+        elseif (islogical(img)) then
+            bins = 0:1;
+        else
+            bins = linspace(0, 1, b);
+        end
+
+        if (~islogical(img)) then
+            bins_adjustment = ((bins(2) - bins(1)) / 2);
+            bins = bins - bins_adjustment;
+        end
+
+        bins = bins';
+
+        
+        if (isfloat(img) & min(double(img(:))) < 0) then
+            img(img < 0) = 0;
+        end
+
+       
+        if (max(double(img(:))) > bins($)) then
+            if (fix(bins($)) ~= bins($)) then
+                img = double(img);
+            end
+            img(img > bins($)) = bins($);
+        end
+    end
+
+    
+    [nn] = histc_compat(double(img(:)), bins);
+
+    if (~indexed & ~islogical(img)) then
+        bins = bins + bins_adjustment;
+    end
+
+    if (lhs ~= 0) then
+        varargout(1) = nn;
+        varargout(2) = bins;
+    else
+        stem(bins, nn);
+        e = gce();
+        if (typeof(e) == "Compound") then
+            e.children(1).mark_mode = "off";
+        end
+
+        a = gca();
+        a.data_bounds = [bins(1), 0; bins($), max(nn) * 1.1];
+
+        a.box = "off";
+
+        ylimit = round(median(nn) * 10);
+        if (a.data_bounds(2, 2) > ylimit & ylimit ~= 0) then
+            a.data_bounds(2, 2) = ylimit;
+        end
+
+        if (indexed) then
+            colormap(b);
+        else
+            colormap(graycolormap(b));
+        end
+
+        call_colorbar()
+    end
+endfunction
+
+
+function call_colorbar()
+    colorbar();
+endfunction
+
+
+
+// HISTC_COMPAT
+
+
+function nn = histc_compat(data, edges)
+    // edges: vector of bin edges [e1, e2, ..., eN]
+    // Returns: nn — column vector of length N where:
+    //   nn(i) for i=1:N-1: count of values in [edges(i), edges(i+1))
+    //   nn(N): count of values exactly equal to edges(N)
+
+    n_edges = length(edges);
+    nn = zeros(n_edges, 1);
+
+    if (n_edges == 0) then
+        return;
+    end
+
+    if (n_edges == 1) then
+        nn(1) = sum(data == edges(1));
+        return;
+    end
+
+    for i = 1:(n_edges - 1)
+        // Standard bin: edges(i) <= data < edges(i+1)
+        nn(i) = sum(data >= edges(i) & data < edges(i + 1));
+    end
+    nn(n_edges) = sum(data == edges(n_edges));
+endfunction
+
+
+
+// HELPER FUNCTIONS
+
+
+function result = islogical(x)
+    result = (type(x) == 4);
+endfunction
+
+function result = isinteger(x)
+    result = (type(x) == 8);
+endfunction
+
+function result = isfloat(x)
+    result = (type(x) == 1);
+endfunction
+
+function result = isscalar(x)
+    result = (size(x, 1) == 1 & size(x, 2) == 1);
+endfunction
+
+function result = isnumeric(x)
+    result = or(type(x) == [1, 5, 8]);
+endfunction
+
+function result = issparse(x)
+    result = (type(x) == 5);
+endfunction
+
+function result = iscolormap(x)
+    [nr, nc] = size(x);
+    result = (nc == 3 & nr > 0);
+    if (result) then
+        result = (min(x) >= 0 & max(x) <= 1);
+    end
+endfunction
+
+function bool = isind(img)
+    bool = %f;
+    im_is_valid = (or(type(img) == [1, 5, 8]) | type(img) == 4) & ndims(img) >= 2;
+    if (im_is_valid & ndims(img) < 5 & size(img, 3) == 1) then
+        if (type(img) == 1) then
+            bool = and((img == floor(img)) & (img > 0), "*");
+        elseif (or(inttype(img) == [11, 12])) then
+            bool = %t;
+        end
+    end
+endfunction
+
+function m = intmin(cls)
+    select cls
+    case "uint8" then m = 0;
+    case "uint16" then m = 0;
+    case "int8" then m = -128;
+    case "int16" then m = -32768;
+    case "int32" then m = -2147483648;
+    case "uint32" then m = 0;
+    case "int64" then m = -9223372036854775808;
+    case "uint64" then m = 0;
+    else
+        error("intmin: unsupported class " + cls);
+    end
+endfunction
+
+function m = intmax(cls)
+    select cls
+    case "uint8" then m = 255;
+    case "uint16" then m = 65535;
+    case "int8" then m = 127;
+    case "int16" then m = 32767;
+    case "int32" then m = 2147483647;
+    case "uint32" then m = 4294967295;
+    case "int64" then m = 9223372036854775807;
+    case "uint64" then m = 18446744073709551615;
+    else
+        error("intmax: unsupported class " + cls);
+    end
+endfunction
+
+function cls = class(x)
+    t = type(x);
+    select t
+    case 1 then cls = "double";
+    case 4 then cls = "logical";
+    case 5 then cls = "sparse";
+    case 8 then
+        it = inttype(x);
+        select it
+        case 11 then cls = "uint8";
+        case 12 then cls = "uint16";
+        case 13 then cls = "uint32";
+        case 14 then cls = "uint64";
+        case 2 then cls = "int16";
+        case 4 then cls = "int32";
+        case 8 then cls = "int64";
+        case 1 then cls = "int8";
+        else
+            cls = "unknown_integer";
+        end
+    case 10 then cls = "string";
+    else
+        cls = "unknown";
+    end
+endfunction
+
+
+// IMCAST FUNCTION
+
+
+function imout = imcast(img, outcls, varargin)
+    [lhs, rhs] = argn();
+
+    if (rhs < 2 || rhs > 3) then
+        error("imcast: wrong number of arguments.");
+    end
+    
+    is_indexed_mode = %f;
+    if (rhs == 3) then
+        param = varargin(1);
+        if typeof(param) <> "string" || convstr(param, "l") <> "indexed" then
+            error("imcast: third argument must be the string ""indexed""");
+        end
+        is_indexed_mode = %t;
+    end
+
+    outcls = convstr(outcls, "l");
+
+    incls_type = type(img);
+    incls_str = "";
+    
+    if incls_type == 1 then
+        incls_str = "double"; 
+    elseif incls_type == 4 then
+        incls_str = "logical"; 
+    elseif incls_type == 8 then
+        select inttype(img)
+        case 11 then incls_str = "uint8";
+        case 12 then incls_str = "uint16";
+        case 2 then incls_str = "int16";
+        else
+            error("imcast: unsupported integer input class.");
+        end
+    else
+        error("imcast: unknown image class type.");
+    end
+
+    if is_indexed_mode then
+        if ~isind(img) then
+            error("imcast: input should have been an indexed image but it is not.");
+        end
+
+        if (outcls == "single" || outcls == "double") then
+            if incls_type == 8 then
+                imout = double(img) + 1; 
+            else
+                imout = double(img);
+            end
+        else
+            select outcls
+            case "uint8" then target_max = 255;
+            case "uint16" then target_max = 65535;
+            case "int16" then target_max = 32767;
+            else
+                error("imcast: unsupported integer type " + outcls);
+            end
+
+            if incls_type == 8 then
+                if max(double(img)) > target_max then
+                    error(msprintf("imcast: IMG has too many colours %d for the range of values in %s", max(double(img)), outcls));
+                end
+            elseif incls_type == 1 then
+                imax = max(img) - 1;
+                if imax > target_max then
+                    error(msprintf("imcast: IMG has too many colours %d for the range of values in %s", imax, outcls));
+                end
+                img = img - 1; 
+            end
+            
+            select outcls
+            case "uint8" then imout = uint8(img);
+            case "uint16" then imout = uint16(img);
+            case "int16" then imout = int16(img);
+            end
+        end
+
+    else
+        problem = %f;
+        
+        select incls_str
+        case "double" then
+            select outcls
+            case "uint8" then 
+                img_clamped = max(0, min(1, img));
+                imout = uint8(round(img_clamped * 255));
+            case "uint16" then 
+                img_clamped = max(0, min(1, img));
+                imout = uint16(round(img_clamped * 65535));
+            case "int16" then 
+                img_clamped = max(0, min(1, img));
+                imout = int16(round(img_clamped * 65535 - 32768));
+            case "double" then imout = double(img);
+            case "single" then imout = double(img); 
+            case "logical" then imout = (img <> 0);
+            else problem = %t;
+            end
+
+        case "uint8" then
+            select outcls
+            case "double" then imout = double(img) / 255;
+            case "uint8" then imout = img; 
+            case "single" then imout = double(img) / 255;
+            case "uint16" then imout = uint16(img) * 257; 
+            case "int16" then imout = int16(double(img) * 257 - 32768);
+            case "logical" then imout = (img <> 0);
+            else problem = %t;
+            end
+
+        case "uint16" then
+            select outcls
+            case "double" then imout = double(img) / 65535;
+            case "single" then imout = double(img) / 65535;
+            case "uint8" then imout = img;
+            case "int16" then imout = int16(double(img) - 32768);
+            case "logical" then imout = (img <> 0);
+            else problem = %t;
+            end
+
+        case "logical" then
+            select outcls
+            case "double" then imout = double(img);
+            case "single" then imout = double(img);
+            case "uint8" then 
+                imout = zeros(img); 
+                imout(img) = 255;
+                imout = uint8(imout);
+            case "uint16" then 
+                imout = zeros(img); 
+                imout(img) = 65535;
+                imout = uint16(imout);
+            case "int16" then 
+                imout = ones(img) * -32768; 
+                imout(img) = 32767;
+                imout = int16(imout);
+            case "logical" then imout = img; 
+            else problem = %t;
+            end
+
+        case "int16" then
+            select outcls
+            case "double" then imout = (double(img) + 32768) / 65535;
+            case "single" then imout = (double(img) + 32768) / 65535;
+            case "uint8" then imout = uint8((double(img) + 32768) / 257);
+            case "uint16" then imout = uint16(double(img) + 32768);
+            case "logical" then imout = (img <> 0);
+            case "int16" then imout = img;
+            else problem = %t;
+            end
+        end
+        
+        if (problem) then
+            error("imcast: unsupported TYPE """ + outcls + """");
+        end
+    end
+endfunction
+
+
+
+// IM2UINT8 FUNCTION
+
+
+function imout = im2uint8(img, varargin)
+    [lhs, rhs] = argn();
+
+    if (rhs < 1 || rhs > 2) then
+        error("im2uint8: usage: im2uint8 (img) or im2uint8 (img, ""indexed"")");
+    end
+
+    if (rhs == 2) then
+        param = varargin(1);
+        if typeof(param) <> "string" || convstr(param, "l") <> "indexed" then
+            error("im2uint8: second input argument must be the string ""indexed""");
+        end
+    end
+
+    imout = imcast(img, "uint8", varargin(:));
 endfunction
