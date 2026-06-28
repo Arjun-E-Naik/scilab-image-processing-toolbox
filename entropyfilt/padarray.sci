@@ -39,8 +39,6 @@ function B = padarray_symmetric(A, padsize, direction)
     
     select convstr(direction, "l")
     case "both" then
-        // For each dimension, reflect excluding the edge element
-        // Row reflections
         if (pr > 0) then
             top = A(pr+1:-1:2, :);
             bottom = A(rows-1:-1:rows-pr, :);
@@ -49,7 +47,6 @@ function B = padarray_symmetric(A, padsize, direction)
             bottom = [];
         end
         
-        // Column reflections  
         if (pc > 0) then
             left = A(:, pc+1:-1:2);
             right = A(:, cols-1:-1:cols-pc);
@@ -58,7 +55,6 @@ function B = padarray_symmetric(A, padsize, direction)
             right = [];
         end
         
-        // Corners
         if (pr > 0 & pc > 0) then
             topleft = A(pr+1:-1:2, pc+1:-1:2);
             topright = A(pr+1:-1:2, cols-1:-1:cols-pc);
@@ -71,7 +67,6 @@ function B = padarray_symmetric(A, padsize, direction)
             bottomright = [];
         end
         
-        // Assemble
         B = [topleft, top, topright;
              left, A, right;
              bottomleft, bottom, bottomright];
@@ -118,7 +113,6 @@ function B = padarray_replicate(A, padsize, direction)
     
     select convstr(direction, "l")
     case "both" then
-        // Replicate edge rows/columns
         top = repmat(A(1,:), pr, 1);
         bottom = repmat(A(rows,:), pr, 1);
         left = repmat(A(:,1), 1, pc);
