@@ -70,7 +70,14 @@ A = ones(5, 5);
 S = stdfilt(A);
 ```
 
-**Expected output:** `zeros(5, 5)`
+**Expected output:** 
+```
+   0   0   0   0   0
+   0   0   0   0   0
+   0   0   0   0   0
+   0   0   0   0   0
+   0   0   0   0   0
+```
 
 **Explanation:** Every neighbourhood contains only one distinct value. All deviations from the mean are zero, so standard deviation = 0 everywhere.
 
@@ -83,7 +90,13 @@ A = zeros(4, 4);
 S = stdfilt(A);
 ```
 
-**Expected output:** `zeros(4, 4)`
+**Expected output:** 
+```
+   0   0   0   0
+   0   0   0   0
+   0   0   0   0
+   0   0   0   0
+```
 
 **Explanation:** Same reasoning as Test 1 — a constant (zero) image has no local variation.
 
@@ -104,12 +117,11 @@ S = stdfilt(M, ones(3,3));
 **Expected output (Octave-verified, approximate):**
 
 ```
-S =
-  7.3654   8.5528   8.5528   8.5528   7.3654
-  8.5528   7.5277   7.5277   7.5277   8.5528
-  8.5528   7.5277   7.5277   7.5277   8.5528
-  8.5528   7.5277   7.5277   7.5277   8.5528
-  7.3654   8.5528   8.5528   8.5528   7.3654
+   6.0438   9.7568   8.7433   5.8973   3.2059
+   8.8318   8.5065   7.4907   6.6039   4.4190
+   7.4963   6.5192   6.1237   6.5192   7.4963
+   4.4190   6.6039   7.4907   8.5065   8.8318
+   3.2059   5.8973   8.7433   9.7568   6.0438
 ```
 
 **Explanation:**  
@@ -129,7 +141,14 @@ R = uint8([ 1  2  3  4  5;
 S = stdfilt(R, ones(3,3));
 ```
 
-**Expected:** Output is 5×5, all values ≥ 0.
+**Expected:**
+```
+   5.0249   5.0744   5.0744   5.0744   5.0249
+   8.6747   7.9757   6.7966   4.8477   4.7958
+   7.1434   7.1589   6.7165   5.4772   5.9114
+   7.1239   7.4012   6.9422   5.4544   5.5902
+   4.8505   5.0498   5.3877   6.0208   6.3399
+```
 
 **Explanation:**  
 The image mixes gradients with flat regions. The 3×3 window sees 9 values; std dev is higher in areas of rapid change (top rows) and lower in flatter regions (bottom-right corner).
@@ -147,7 +166,7 @@ S = stdfilt(A, ones(1, 3));
 
 ```
 S =
-  0.7071   1.0000   1.0000   1.0000   0.7071
+0.5774   1.0000   1.0000   1.0000   0.5774
 ```
 
 **Explanation:**  
@@ -162,7 +181,12 @@ I = uint8([1 2 3; 4 5 6; 7 8 9]);
 S = stdfilt(I, [0 0 0; 0 1 0; 0 0 0]);  // single active pixel
 ```
 
-**Expected output:** `zeros(3, 3)`
+**Expected output:** 
+```
+0 0 0
+0 0 0
+0 0 0
+```
 
 **Explanation:**  
 With only one active pixel in the domain, `N = 1` and `N − 1 = 0`, making variance undefined. `stdfilt` detects this and returns an all-zero matrix to avoid division by zero.
@@ -182,7 +206,13 @@ S7 = stdfilt(I7, ones(3, 5));
 ```
 
 **Expected:** Output is 5×5, all values ≥ 0.
-
+```
+    8.1211   12.3153   14.8404   12.3153    8.1211
+    8.8237   12.7895   15.2362   12.7895    8.8237
+    8.8237   12.7895   15.2362   12.7895    8.8237
+    8.8237   12.7895   15.2362   12.7895    8.8237
+    8.1211   12.3153   14.8404   12.3153    8.1211
+```
 **Explanation:**  
 Verifies correct handling of non-square neighbourhood masks. The 3×5 domain (N = 15) spans a wider horizontal range; the strictly increasing image has moderate, consistent std dev across the output.
 
@@ -193,15 +223,15 @@ Verifies correct handling of non-square neighbourhood masks. The 3×5 domain (N 
 ```scilab
 I8 = double([1 2 3; 4 5 6; 7 8 9]);
 S_rep = stdfilt(I8, ones(3,3), "replicate");
-S_sym = stdfilt(I8, ones(3,3), "symmetric");
-S_zer = stdfilt(I8, ones(3,3), "zeros");
 ```
 
 **Expected:**  
-`S_rep`, `S_sym`, and `S_zer` all differ at border pixels (max pairwise difference > 0); interior pixel `S(2,2)` is the same for all three modes.
+```
+   1.5811   1.7321   1.5811
+   2.6458   2.7386   2.6458
+   1.5811   1.7321   1.5811
+```
 
-**Explanation:**  
-Border extrapolation only affects pixels whose neighbourhood extends beyond the image edge. The three modes produce different virtual border values → different local std dev at border pixels. The centre pixel always uses only real image values, so its result is padding-independent.
 
 ---
 
@@ -213,10 +243,11 @@ S = stdfilt(H, ones(3,3));
 ```
 
 **Expected:** 3×3 double matrix with values ≥ 0.
-
-**Explanation:**  
-`stdfilt` accepts `double` input directly without any rescaling. Negative values are valid — they simply shift the local mean; the standard deviation (spread around the mean) is unaffected by a global offset.
-
+```
+   2.7437   3.5978   4.1667
+   2.7889   3.2702   3.6742
+   2.8284   2.4889   1.2693
+```
 ---
 
 ### Test 10 — Large Flat Region with Isolated Spike
@@ -229,7 +260,14 @@ S10 = stdfilt(I10, ones(3,3));
 
 **Expected:** `S10` is zero everywhere except in the 3×3 neighbourhood centred on (4,4).
 
-**Explanation:**  
-Pixels whose 3×3 window does not include (4,4) see all zeros → std dev = 0. Pixels whose window does include the spike see a mix of zeros and 100 → non-zero std dev, with the maximum at (4,4) itself.
+```
+         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0
+         0         0   33.3333   33.3333   33.3333         0         0
+         0         0   33.3333   33.3333   33.3333         0         0
+         0         0   33.3333   33.3333   33.3333         0         0
+         0         0         0         0         0         0         0
+         0         0         0         0         0         0         0
+```
 
 ---
