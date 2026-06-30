@@ -1,7 +1,4 @@
-// ============================================================================
-// MAIN FUNCTION: stdfilt
-// ============================================================================
-// Computes the local standard deviation in a neighbourhood around each pixel.
+
 
 function retval = stdfilt(I, varargin)
     [lhs, rhs] = argn(0);
@@ -25,7 +22,7 @@ function retval = stdfilt(I, varargin)
         error("stdfilt: second input argument must be a logical matrix");
     end
 
-    // Cast domain to boolean
+    
     if (type(domain) <> 4) then
         domain = (domain <> 0);
     end
