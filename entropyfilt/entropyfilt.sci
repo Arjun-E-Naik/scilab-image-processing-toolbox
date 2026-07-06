@@ -69,9 +69,8 @@ function retval = entropyfilt(I,varargin)
 endfunction
 
 
-// ============================================================================
+
 // IMHIST FUNCTION
-// ============================================================================
 
 function [varargout] = imhist(img, b)
 
@@ -183,9 +182,9 @@ function call_colorbar()
 endfunction
 
 
-// ============================================================================
-// HISTC_COMPAT — FIXED VERSION
-// ============================================================================
+
+// HISTC_COMPAT 
+
 
 function nn = histc_compat(data, edges)
     n_edges = length(edges);
@@ -208,9 +207,9 @@ function nn = histc_compat(data, edges)
 endfunction
 
 
-// ============================================================================
+
 // HELPER FUNCTIONS
-// ============================================================================
+
 
 function result = islogical(x)
     result = (type(x) == 4);
@@ -313,9 +312,9 @@ function cls = class(x)
 endfunction
 
 
-// ============================================================================
+
 // IMCAST FUNCTION
-// ============================================================================
+
 
 function imout = imcast(img, outcls, varargin)
     [lhs, rhs] = argn();
@@ -475,9 +474,8 @@ function imout = imcast(img, outcls, varargin)
 endfunction
 
 
-// ============================================================================
 // IM2UINT8 FUNCTION
-// ============================================================================
+
 
 function imout = im2uint8(img, varargin)
     [lhs, rhs] = argn();
@@ -539,26 +537,26 @@ function B = padarray_symmetric(A, padsize, direction)
     select convstr(direction, "l")
     case "both" then
         if (pr > 0) then
-            top = A(pr+1:-1:2, :);
-            bottom = A(rows-1:-1:rows-pr, :);
+            top    = A(pr:-1:1, :);              // was: A(pr+1:-1:2, :)
+            bottom = A(rows:-1:rows-pr+1, :);     // was: A(rows-1:-1:rows-pr, :)
         else
             top = [];
             bottom = [];
         end
         
         if (pc > 0) then
-            left = A(:, pc+1:-1:2);
-            right = A(:, cols-1:-1:cols-pc);
+            left  = A(:, pc:-1:1);                // was: A(:, pc+1:-1:2)
+            right = A(:, cols:-1:cols-pc+1);       // was: A(:, cols-1:-1:cols-pc)
         else
             left = [];
             right = [];
         end
         
         if (pr > 0 & pc > 0) then
-            topleft = A(pr+1:-1:2, pc+1:-1:2);
-            topright = A(pr+1:-1:2, cols-1:-1:cols-pc);
-            bottomleft = A(rows-1:-1:rows-pr, pc+1:-1:2);
-            bottomright = A(rows-1:-1:rows-pr, cols-1:-1:cols-pc);
+            topleft     = A(pr:-1:1, pc:-1:1);
+            topright    = A(pr:-1:1, cols:-1:cols-pc+1);
+            bottomleft  = A(rows:-1:rows-pr+1, pc:-1:1);
+            bottomright = A(rows:-1:rows-pr+1, cols:-1:cols-pc+1);
         else
             topleft = [];
             topright = [];
@@ -572,13 +570,13 @@ function B = padarray_symmetric(A, padsize, direction)
              
     case "pre" then
         if (pr > 0) then
-            top = A(pr+1:-1:2, :);
+            top = A(pr:-1:1, :);
         else
             top = [];
         end
         if (pc > 0) then
-            left = A(:, pc+1:-1:2);
-            topleft = A(pr+1:-1:2, pc+1:-1:2);
+            left = A(:, pc:-1:1);
+            topleft = A(pr:-1:1, pc:-1:1);
         else
             left = [];
             topleft = [];
@@ -588,13 +586,13 @@ function B = padarray_symmetric(A, padsize, direction)
              
     case "post" then
         if (pr > 0) then
-            bottom = A(rows-1:-1:rows-pr, :);
+            bottom = A(rows:-1:rows-pr+1, :);
         else
             bottom = [];
         end
         if (pc > 0) then
-            right = A(:, cols-1:-1:cols-pc);
-            bottomright = A(rows-1:-1:rows-pr, cols-1:-1:cols-pc);
+            right = A(:, cols:-1:cols-pc+1);
+            bottomright = A(rows:-1:rows-pr+1, cols:-1:cols-pc+1);
         else
             right = [];
             bottomright = [];
