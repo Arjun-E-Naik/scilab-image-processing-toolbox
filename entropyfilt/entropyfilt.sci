@@ -692,13 +692,10 @@ function B = padarray_constant(A, padsize, padval, direction)
 endfunction
 
 
-// ============================================================================
-// __SPATIAL_FILTERING__ — FIXED OUTPUT SIZE
-// ============================================================================
+
 
 function retval = __spatial_filtering__(I, domain, method, dummy, nbins)
-    // I is the PADDED (and optionally trimmed) image
-    // Output must match ORIGINAL image size
+   
     
     if (method ~= "entropy") then
         error("__spatial_filtering__: only ''entropy'' method supported");
@@ -707,7 +704,7 @@ function retval = __spatial_filtering__(I, domain, method, dummy, nbins)
     [padded_rows, padded_cols] = size(I);
     [drows, dcols] = size(domain);
     
-    // FIX: Use drows/dcols directly instead of 2*pad
+    
     orig_rows = padded_rows - drows + 1;
     orig_cols = padded_cols - dcols + 1;
     
@@ -715,10 +712,9 @@ function retval = __spatial_filtering__(I, domain, method, dummy, nbins)
         error("__spatial_filtering__: domain is larger than the image");
     end
     
-    // Output: original image size
+
     retval = zeros(orig_rows, orig_cols);
     
-    // Simple sliding window — works for both odd and even domains
     for r = 1:orig_rows
         for c = 1:orig_cols
             nhood = I(r:r+drows-1, c:c+dcols-1);
@@ -729,9 +725,8 @@ function retval = __spatial_filtering__(I, domain, method, dummy, nbins)
 endfunction
 
 
-// ============================================================================
-// ENTROPY_NHOOD — FIXED (single definition, empty-set guard)
-// ============================================================================
+// ENTROPY_NHOOD
+
 
 function e = entropy_nhood(nhood, nbins)
     // Compute entropy of a neighborhood (1D vector of values)
@@ -740,7 +735,7 @@ function e = entropy_nhood(nhood, nbins)
     nhood = nhood(:);
     n = length(nhood);
     
-    // FIX: Guard against empty neighborhoods (all-zero domain, etc.)
+    
     if (n == 0) then
         e = 0;
         return;
@@ -754,28 +749,28 @@ function e = entropy_nhood(nhood, nbins)
             e = 0;
             return;
         end
-        p0 = 1 - p1;           // fraction of false
+        p0 = 1 - p1;           
         P = [p0; p1];
-        P = P(P > 0);  // Remove zeros
+        P = P(P > 0); 
     else
-        // For uint8: bins are 0:255
+       
         if (nbins == 256) then
-            // Fast path for uint8
+            
             counts = zeros(256, 1);
             for k = 1:n
-                v = double(nhood(k)) + 1;  // 1-based index
+                v = double(nhood(k)) + 1; 
                 if (v >= 1 & v <= 256) then
                     counts(v) = counts(v) + 1;
                 end
             end
-            P = counts(counts > 0);  // Remove zero bins
+            P = counts(counts > 0);  
             if (isempty(P)) then
                 e = 0;
                 return;
             end
             P = P ./ sum(P);          // Normalize
         else
-            // General case for non-uint8 or custom nbins
+           
             min_val = min(double(nhood));
             max_val = max(double(nhood));
             if (min_val == max_val) then
