@@ -11,7 +11,7 @@ function retval = stdfilt(I, varargin)
         error("stdfilt: first input must be a matrix");
     end
 
-    // 1. Process Domain
+    
     if (rhs >= 2) then
         domain = varargin(1);
     else
@@ -38,19 +38,19 @@ function retval = stdfilt(I, varargin)
 
     
     if (rhs >= 4) then
-        I_padded = padarray(I, pad_sz, padding, varargin(3));
+        I = padarray(I, pad_sz, padding, varargin(3));
     else
-        I_padded = padarray(I, pad_sz, padding);
+        I = padarray(I, pad_sz, padding);
     end
 
    
     even = (round(size(domain) / 2) == size(domain) / 2);
-    idx1 = (even(1) + 1) : size(I_padded, 1);
-    idx2 = (even(2) + 1) : size(I_padded, 2);
-    I_padded = I_padded(idx1, idx2); 
+    idx1 = (even(1) + 1) : size(I, 1);    // this id1 and id2 for cell() function , which splits like this
+    idx2 = (even(2) + 1) : size(I, 2);
+    I = I(idx1, idx2); 
 
 
-    retval = __spatial_filtering__(I_padded, domain, "std", zeros(size(domain)), 0);
+    retval = __spatial_filtering__(I, domain, "std", zeros(size(domain)), 0);
 endfunction
 
 
@@ -130,31 +130,27 @@ function B = padarray_symmetric(A, padsize, direction)
     
     select convstr(direction, "l")
     case "both" then
-        // For each dimension, reflect excluding the edge element
-        // Row reflections
         if (pr > 0) then
-            top = A(pr+1:-1:2, :);
-            bottom = A(rows-1:-1:rows-pr, :);
+            top    = A(pr:-1:1, :);             
+            bottom = A(rows:-1:rows-pr+1, :);    
         else
             top = [];
             bottom = [];
         end
         
-        // Column reflections  
         if (pc > 0) then
-            left = A(:, pc+1:-1:2);
-            right = A(:, cols-1:-1:cols-pc);
+            left  = A(:, pc:-1:1);                
+            right = A(:, cols:-1:cols-pc+1);      
         else
             left = [];
             right = [];
         end
         
-        // Corners
         if (pr > 0 & pc > 0) then
-            topleft = A(pr+1:-1:2, pc+1:-1:2);
-            topright = A(pr+1:-1:2, cols-1:-1:cols-pc);
-            bottomleft = A(rows-1:-1:rows-pr, pc+1:-1:2);
-            bottomright = A(rows-1:-1:rows-pr, cols-1:-1:cols-pc);
+            topleft     = A(pr:-1:1, pc:-1:1);
+            topright    = A(pr:-1:1, cols:-1:cols-pc+1);
+            bottomleft  = A(rows:-1:rows-pr+1, pc:-1:1);
+            bottomright = A(rows:-1:rows-pr+1, cols:-1:cols-pc+1);
         else
             topleft = [];
             topright = [];
@@ -162,20 +158,19 @@ function B = padarray_symmetric(A, padsize, direction)
             bottomright = [];
         end
         
-        // Assemble
         B = [topleft, top, topright;
              left, A, right;
              bottomleft, bottom, bottomright];
              
     case "pre" then
         if (pr > 0) then
-            top = A(pr+1:-1:2, :);
+            top = A(pr:-1:1, :);
         else
             top = [];
         end
         if (pc > 0) then
-            left = A(:, pc+1:-1:2);
-            topleft = A(pr+1:-1:2, pc+1:-1:2);
+            left = A(:, pc:-1:1);
+            topleft = A(pr:-1:1, pc:-1:1);
         else
             left = [];
             topleft = [];
@@ -185,13 +180,13 @@ function B = padarray_symmetric(A, padsize, direction)
              
     case "post" then
         if (pr > 0) then
-            bottom = A(rows-1:-1:rows-pr, :);
+            bottom = A(rows:-1:rows-pr+1, :);
         else
             bottom = [];
         end
         if (pc > 0) then
-            right = A(:, cols-1:-1:cols-pc);
-            bottomright = A(rows-1:-1:rows-pr, cols-1:-1:cols-pc);
+            right = A(:, cols:-1:cols-pc+1);
+            bottomright = A(rows:-1:rows-pr+1, cols:-1:cols-pc+1);
         else
             right = [];
             bottomright = [];
