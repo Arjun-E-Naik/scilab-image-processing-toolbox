@@ -31,7 +31,7 @@ function retval = entropyfilt(I,varargin)
     end
 
     cls = class(I);
-    // FIX: Added int8 to the conversion list
+    
     if (cls == "double" | cls == "single" | cls == "int8" | cls == "int16" | cls == "int32" | cls == "int64" | cls == "uint16" | cls == "uint32" | cls == "uint64") then
         I = im2uint8(I);
     elseif (cls == "logical" | cls == "uint8") then
@@ -428,7 +428,7 @@ function imout = imcast(img, outcls, varargin)
             select outcls
             case "double" then imout = double(img) / 65535;
             case "single" then imout = double(img) / 65535;
-            // FIX: Proper uint16 to uint8 conversion
+          
             case "uint8" then imout = uint8(double(img) / 257);
             case "int16" then imout = int16(double(img) - 32768);
             case "logical" then imout = (img <> 0);
@@ -537,16 +537,16 @@ function B = padarray_symmetric(A, padsize, direction)
     select convstr(direction, "l")
     case "both" then
         if (pr > 0) then
-            top    = A(pr:-1:1, :);              // was: A(pr+1:-1:2, :)
-            bottom = A(rows:-1:rows-pr+1, :);     // was: A(rows-1:-1:rows-pr, :)
+            top    = A(pr:-1:1, :);          
+            bottom = A(rows:-1:rows-pr+1, :);     
         else
             top = [];
             bottom = [];
         end
         
         if (pc > 0) then
-            left  = A(:, pc:-1:1);                // was: A(:, pc+1:-1:2)
-            right = A(:, cols:-1:cols-pc+1);       // was: A(:, cols-1:-1:cols-pc)
+            left  = A(:, pc:-1:1);                
+            right = A(:, cols:-1:cols-pc+1);     
         else
             left = [];
             right = [];
