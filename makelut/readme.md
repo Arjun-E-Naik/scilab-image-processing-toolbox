@@ -53,21 +53,6 @@ lut = makelut(fun, n, arg1, arg2, arg3)
 | `n < 2` | `makelut: n should be a natural number >= 2` |
 
 ---
-## Dependencies
-
-### `feval()`
-
-```
-retval = feval(fun, idx, varargin)
-```
-| Parameter | Description |
-|-----------|-------------|
-| `fun` | Function handle to invoke. |
-| `idx` | n×n logical matrix — the decoded neighbourhood. |
-| `varargin` | 0 to 3 additional arguments passed through to `fun`. |
-| **Returns `retval`** | Scalar output of `fun`. |
-
-Passing more than 3 extra arguments raises: `feval: too many arguments`.
 
 ---
 **Complexity:** O(c) = O(2^(n²)) iterations, each performing O(n²) bitwise operations plus one function call.
