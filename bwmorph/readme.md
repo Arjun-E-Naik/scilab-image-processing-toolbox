@@ -1,170 +1,296 @@
 # `bwmorph.sci` — Binary Image Morphological Operations
 
+
+
 ---
+
+
 
 ## Overview
 
-**Binary morphological operations** reshape binary (black-and-white) images by applying
-neighbourhood rules to every pixel. Each operation slides a small window over the image,
-examines the pixel pattern inside, and decides what the center pixel should become.
+| | |
+|---|---|
+| **Function** | `bwmorph(bw, operation [, n])` |
+| **Purpose** | Apply a named morphological transform to a binary image, `n` times (or until convergence with `n = %inf`) |
+| **Input class** | numeric or boolean matrix, any dimensionality (2‑D required for LUT-based ops, N‑D allowed for structuring-element ops) |
+| **Output class** | boolean, same shape as input |
+| **Dependencies** | `strel_hypercube`, `imfilter_nd`, `conndef`, `dilate`, `erode`, `open`, `close`, `tophat`, `bothat`, `filter2`, `applylut` (all must be loaded/defined before calling `bwmorph`) |
+| **Source** | Octave Forge `image` package, `bwmorph.m` (Copyright Josep Mones i Teixidor, Carnë Draug) |
+
+---
 
 
-### Calling Sequence
 
-```scilab
-exec("bwmorph.sci")            // load all functions
+## Calling Sequence
 
-out = bwmorph(img, "dilate")          // run once
-out = bwmorph(img, "thin", %inf)      // run until stable
-out = bwmorph(img, "erode", 3)        // run exactly 3 times
+### `bwmorph`
+
+```
+bw2 = bwmorph(bw, operation)
+bw2 = bwmorph(bw, operation, n)
 ```
 
+**Inputs**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `bw` | numeric \| boolean matrix | Input binary image. Non-boolean input is converted via `bw <> 0`. |
+| `operation` | string | One of the 21 supported operation names (case-insensitive). See table below. |
+| `n` | scalar (optional) | Number of iterations. Default `1`. Negative values silently reset to `1` (undocumented Octave-compatibility quirk, preserved intentionally). Use `%inf` to iterate until the image stops changing. |
+
+**Output**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `bw2` | boolean matrix | Transformed image, same shape as `bw`. |
+
+**Errors**
+
+| Condition | Message |
+|---|---|
+| `argn(2) < 2` or `> 3` | `"bwmorph: need 2 or 3 arguments: bwmorph(bw, operation [, n])"` |
+| `bw` not numeric/boolean | `"bwmorph: BW must be a numeric or boolean matrix"` |
+| `operation` not a string | `"bwmorph: OPERATION must be a string"` |
+| `n` not scalar numeric | `"bwmorph: N must be a scalar"` |
+| unknown `operation` | `"bwmorph: unknown OPERATION '<name>'"` |
+
 ---
 
 
 
-
-#### Inputs
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `bw` | numeric or boolean matrix | Input binary image. |
-| `operation` | string | Name of the operation to apply. |
-| `n` | scalar (optional) | Number of iterations. Default is 1. Pass `%inf` to run until convergence. |
-
-#### Output
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `bw2` | boolean matrix | Result image, same size as `bw`. |
-
----
-
-### Helper functions
+## Helper / Dependency Functions
 
 | Function | Signature | What it does |
-|----------|-----------|--------------|
-| `bw_dilate` | `R = bw_dilate(A, se)` | Dilate `A` with structuring element `se` |
-| `bw_erode` | `R = bw_erode(A, se)` | Erode `A` with structuring element `se` |
-| `bw_open` | `R = bw_open(A, se)` | Erode then dilate |
-| `bw_close` | `R = bw_close(A, se)` | Dilate then erode |
-| `bw_tophat` | `R = bw_tophat(A, se)` | `A AND NOT open(A)` |
-| `bw_bothat` | `R = bw_bothat(A, se)` | `close(A) AND NOT A` |
-| `local_applylut` | `B = local_applylut(A, lut)` | Apply a 512-entry boolean LUT to every pixel using its 3×3 neighbourhood |
-| `bw_thin_zs` | `bw2 = bw_thin_zs(bw, n)` | Thin binary image using the Zhang–Suen algorithm for up to `n` iterations |
-| `thin_subiteration` | `[bw_out, changed] = thin_subiteration(bw, step)` | One sub-iteration of Zhang–Suen thinning (step 1 or step 2); returns updated image and a flag indicating whether any pixel changed |
+|---|---|---|
+| `strel_hypercube` | `se = strel_hypercube(n, edge_size)` | Builds an N-dimensional all-true structuring element of shape `repmat(edge_size, 1, n)` |
+| `imfilter_nd` | `R = imfilter_nd(A, K, pad_val)` | Shift-and-add convolution supporting 2‑D/3‑D, with explicit boundary padding value (replaces Octave's `convn`) |
+| `conndef` | `conn = conndef(num_dims, "minimal"/"maximal")` or `conndef(conn_matrix)` or `conndef(scalar)` | Builds standard connectivity kernels (equivalent to Octave/MATLAB's `conndef`) |
+| `dilate` | `R = dilate(A, se)` | `imfilter_nd(A, se, 0) > 0` |
+| `erode` | `R = erode(A, se)` | `imfilter_nd(A, se, 1) >= sum(se(:))` (pads with 1s so border isn't spuriously eroded) |
+| `open` | `R = open(A, se)` | `dilate(erode(A, se), se)` |
+| `close` | `R = close(A, se)` | `erode(dilate(A, se), se)` |
+| `tophat` | `R = tophat(A, se)` | `A & ~open(A, se)` |
+| `bothat` | `R = bothat(A, se)` | `close(A, se) & ~A` |
+| `filter2` | `y = filter2(b, x, shape)` | 2‑D correlation via `conv2` with kernel flip, matches MATLAB/Octave `filter2` semantics |
+| `applylut` | `A = applylut(BW, LUT)` | Applies a `2^(n²)`-entry lookup table over every pixel's `n×n` binary neighbourhood (used with `n=3`, i.e. 512-entry LUTs, throughout `bwmorph`) |
 
 ---
 
 
 
 
-
 ---
 
-## Test Cases
+## Worked Test Cases
 
-### Test 1 — `clean`: remove isolated pixel, keep neighboured pixel
+### Test 1 — `clean`
 
 ```scilab
 in  = ([0 0 0; 1 0 1; 0 0 1] ~= 0);
 out = bwmorph(in, "clean");
-// pixel at (2,1) has no white neighbours → removed
-// pixel at (2,3) touches (3,3) → kept
-// Expected:
-// 0  0  0
-// 0  0  1
-// 0  0  1
+disp(double(out));
 ```
+Expected:
+```
+0 0 0
+0 0 1
+0 0 1
+```
+Pixel `(2,1)` has no true 8-neighbours → removed. Pixel `(2,3)`/`(3,3)` touch each other → kept.
 
-### Test 2 — `bridge`: connect two diagonal regions
+### Test 2 — `bridge`
 
 ```scilab
 in  = ([1 0 0; 1 0 1; 0 0 1] ~= 0);
 out = bwmorph(in, "bridge");
-// The gap pixel at (1,2) and (2,2) bridge the two disconnected regions
-// Expected:
-// 1  1  0
-// 1  1  1
-// 0  1  1
+disp(double(out));
+```
+Expected:
+```
+1 1 0
+1 1 1
+0 1 1
 ```
 
-### Test 3 — `dilate`: single pixel expands to 3×3
+### Test 3 — `dilate`
 
 ```scilab
 in  = ([0 0 0; 0 1 0; 0 0 0] ~= 0);
 out = bwmorph(in, "dilate");
-// Every pixel within the 3x3 window of the center becomes 1
-// Expected: ones(3,3)
+disp(double(out));
 ```
+Expected: `ones(3,3)` — the lone center pixel dilates to fill its full 3×3 neighbourhood.
 
-### Test 4 — `erode`: solid 3×3 shrinks to single center pixel
+### Test 4 — `erode`
 
 ```scilab
 in  = ones(3,3) ~= 0;
 out = bwmorph(in, "erode");
-// Only the center pixel has all 9 neighbours as 1
-// Expected:
-// 0  0  0
-// 0  1  0
-// 0  0  0
+disp(double(out));
 ```
+Expected:
+```
+0 0 0
+0 1 0
+0 0 0
+```
+Only the center pixel has all 8 neighbours true.
 
-### Test 5 — `remove`: hollow out a filled region
+### Test 5 — `remove`
 
 ```scilab
 in  = ([0 1 0 0 0; 1 0 0 1 0; 1 0 1 0 0; 1 1 1 1 1; 1 1 1 1 1] ~= 0);
 out = bwmorph(in, "remove");
-// Position (4,3): all 4 direct neighbours are 1 → removed
-// Expected:
-// 0  1  0  0  0
-// 1  0  0  1  0
-// 1  0  1  0  0
-// 1  1  0  1  1
-// 1  1  1  1  1
+disp(double(out));
 ```
+Expected:
+```
+0 1 0 0 0
+1 0 0 1 0
+1 0 1 0 0
+1 1 0 1 1
+1 1 1 1 1
+```
+Pixel `(4,3)` has all four-connected neighbours true → interior pixel removed.
 
-### Test 6 — `endpoints`: tips of skeleton branches
+### Test 6 — `endpoints`
 
 ```scilab
 in  = ([0 0 0 0 0; 0 0 1 0 0; 0 1 1 1 0; 0 0 1 0 0; 0 0 0 0 0] ~= 0);
 out = bwmorph(in, "endpoints");
-// The center pixel has 4 neighbours → not an endpoint
-// Each arm tip has 1 neighbour → endpoint
-// Expected:
-// 0  0  0  0  0
-// 0  0  1  0  0
-// 0  1  0  1  0
-// 0  0  1  0  0
-// 0  0  0  0  0
+
+disp(double(out));
+```
+Expected:
+```
+0 0 0 0 0
+0 0 1 0 0
+0 1 0 1 0
+0 0 1 0 0
+0 0 0 0 0
 ```
 
-### Test 7 — `skel-lantuejoul`: progressive skeleton
+
+### Test 7 — `skel-lantuejoul` (Gonzalez & Woods fig. 8.39)
 
 ```scilab
-// 12x7 irregular blob from Gonzalez & Woods fig 8.39
 slBW = ([0 0 0 0 0 0 0; 0 1 0 0 0 0 0; 0 0 1 1 0 0 0; 0 0 1 1 0 0 0; ...
          0 0 1 1 1 0 0; 0 0 1 1 1 0 0; 0 1 1 1 1 1 0; 0 1 1 1 1 1 0; ...
          0 1 1 1 1 1 0; 0 1 1 1 1 1 0; 0 1 1 1 1 1 0; 0 0 0 0 0 0 0] ~= 0);
 
-out_n1  = bwmorph(slBW, "skel-lantuejoul", 1);    // first level only
-out_n3  = bwmorph(slBW, "skel-lantuejoul", 3);    // three levels
-out_inf = bwmorph(slBW, "skel-lantuejoul", %inf); // full skeleton
+out_n1  = bwmorph(slBW, "skel-lantuejoul", 1);
+out_n3  = bwmorph(slBW, "skel-lantuejoul", 3);
+out_inf = bwmorph(slBW, "skel-lantuejoul", %inf);
+
+disp(double(out_n1));
+
+disp(double(out_n3));
+
+disp(double(out_inf));
+```
+Expected:
+```
+ "test for out_n1 function"
+   0.   0.   0.   0.   0.   0.   0.
+   0.   1.   0.   0.   0.   0.   0.
+   0.   0.   1.   1.   0.   0.   0.
+   0.   0.   1.   1.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+
+
+  "test for out_n3 function"
+   0.   0.   0.   0.   0.   0.   0.
+   0.   1.   0.   0.   0.   0.   0.
+   0.   0.   1.   1.   0.   0.   0.
+   0.   0.   1.   1.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   1.   0.   0.   0.
+   0.   0.   0.   1.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   1.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+
+
+  "test for out_inf function"
+   0.   0.   0.   0.   0.   0.   0.
+   0.   1.   0.   0.   0.   0.   0.
+   0.   0.   1.   1.   0.   0.   0.
+   0.   0.   1.   1.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   1.   0.   0.   0.
+   0.   0.   0.   1.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   1.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
 ```
 
-### Test 8 — `thin` (Zhang–Suen): thin a thick horizontal bar
+### Test 8 — `thin`
 
 ```scilab
 in  = ones(5, 7) ~= 0;
 out = bwmorph(in, "thin", %inf);
-// The 5-row bar is thinned to a single 1-pixel-wide horizontal stroke.
+disp(double(out));
+```
+Expected:
+```
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   1.   1.   1.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+   0.   0.   0.   0.   0.   0.   0.
+```
+
+### Test 9 — `majority` (regression test for the `loop_once` fix)
+
+```scilab
+in  = ([1 1 0; 1 0 0; 0 0 1] ~= 0);
+out1 = bwmorph(in, "majority", 1);
+out3 = bwmorph(in, "majority", 3);
+disp(double(out1));
+
+disp(double(out3));
+```
+```
+Out1 (1 iteration):
+   0   0   0
+   0   0   0
+   0   0   0
+Out3 (3 iterations):
+   0   0   0
+   0   0   0
+   0   0   0
+```
+
+### Test 10 — `thicken`
+
+```scilab
+bw = bool2s(zeros(8, 7));
+bw(8, 1) = %t;
+out = bwmorph(bw, "thicken", 6);
+disp(double(out));
+```
+Expected:
+```
+0 0 0 0 0 0 0
+1 0 0 0 0 0 0
+1 1 0 0 0 0 0
+1 1 1 0 0 0 0
+1 1 1 1 0 0 0
+1 1 1 1 1 0 0
+1 1 1 1 1 1 0
+1 1 1 1 1 1 1
 ```
 
 ---
 
-## Running the Tests
-
-```scilab
-exec("bwmorph.sci")       // load all functions
-exec("test_bwmorph.sci")  // run all assertions, prints PASS/FAIL for each
-```
