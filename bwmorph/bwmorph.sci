@@ -24,38 +24,163 @@ bw2_tmp - temporary matrix that hold result of current loop
 
 
 
+// HELPER FUNCTIONS 
+
+
+function se = strel_hypercube(n, edge_size)
+    // Creates an N-dimensional hypercube structuring element
+    [lhs, rhs] = argn(0);
+    if rhs <> 2 then
+        error("strel: a hypercube shape needs exactly 2 arguments");
+    end
+    dims = repmat(edge_size, 1, n);
+    total_elements = prod(dims);
+    flat_bool_array = ones(total_elements, 1) ~= 0;
+    se = matrix(flat_bool_array, dims);
+endfunction
+
+function R = imfilter_nd(A, K, pad_val)
+    // This function helps to scilab to handle hypermatrix easily for 2d and 3d images.a
+    // Custom Shift-and-Add Convolution that safely handles 2D and 3D
+    A = double(A);
+    K = double(K);
+    szA = size(A);
+    szK = size(K);
+
+    if length(szA) < 3 then szA(3) = 1; end
+    if length(szK) < 3 then szK(3) = 1; end
+
+    ar = szA(1); ac = szA(2); ad = szA(3);
+    kr = szK(1); kc = szK(2); kd = szK(3);
+
+    pr = floor(kr/2); pc = floor(kc/2); pd = floor(kd/2);
+
+    P = pad_val * ones(ar + 2*pr, ac + 2*pc, ad + 2*pd);
+    P(pr+1:pr+ar, pc+1:pc+ac, pd+1:pd+ad) = A;
+
+    R = zeros(ar, ac, ad);
+    for i = 1:kr
+        for j = 1:kc
+            for k = 1:kd
+                if K(i,j,k) <> 0 then
+                    R = R + K(i,j,k) * P(i:i+ar-1, j:j+ac-1, k:k+ad-1);
+                end
+            end
+        end
+    end
+
+    if length(size(A)) == 2 then
+        R = R(:,:,1);
+    end
+endfunction
+
+function conn = conndef(varargin)
+    [lhs, rhs] = argn();
+
+    if rhs < 1 | rhs > 2 then
+        error("conndef: requires 1 or 2 arguments.");
+    end
+
+    if rhs == 2 then
+        num_dims = varargin(1);
+        conntype = varargin(2);
+
+        if ~(isreal(num_dims) & isscalar(num_dims) & num_dims > 0 & fix(num_dims) == num_dims) then
+            error("conndef: number of dimensions must be a positive integer.");
+        end
+        if type(conntype) ~= 10 then
+            error("conndef: second argument must be a string (""minimal"" or ""maximal"").");
+        end
+
+        conntype_l = convstr(conntype, "l");
+        sz = repmat(3, 1, num_dims);
+
+        if conntype_l == "minimal" then
+            dist_matrix = zeros(1, 3^num_dims);
+            dist_matrix = matrix(dist_matrix, sz);
+
+            for d = 1:num_dims
+                sh = ones(1, num_dims);
+                sh(d) = 3;
+                grid_d = matrix(1:3, sh);
+
+                sz_grid = ones(1, num_dims);
+                sz_grid(1:length(size(grid_d))) = size(grid_d);
+                rep_factors = sz ./ sz_grid;
+
+                rep_grid = repmat(grid_d, rep_factors);
+                dist_matrix = dist_matrix + abs(rep_grid - 2);
+            end
+
+            conn = double(dist_matrix <= 1);
+
+        elseif conntype_l == "maximal" then
+            conn = ones(3^num_dims, 1);
+            conn = matrix(conn, sz);
+        else
+            error("conndef: unknown connectivity type """ + conntype + """.");
+        end
+        return;
+    end
+
+    input_arg = varargin(1);
+
+    if ~isscalar(input_arg) then
+        sz_in = size(input_arg);
+        if any(sz_in ~= 3) then
+            error("conndef: CONN must be a matrix with all dimensions of size 3.");
+        end
+        if any(input_arg ~= 0 & input_arg ~= 1) then
+            error("conndef: CONN array elements must be either 0 or 1.");
+        end
+        mid_idx = cell(1, length(sz_in));
+        for d = 1:length(sz_in)
+            mid_idx(d).entries = 2;
+        end
+        if input_arg(mid_idx(:)) ~= 1 then
+            error("conndef: CONN center element must be 1.");
+        end
+        conn = double(input_arg);
+        return;
+    end
+
+    if ~(isreal(input_arg) & (input_arg == 4 | input_arg == 8 | input_arg == 6 | input_arg == 18 | input_arg == 26)) then
+        error("conndef: scalar connectivity must be 4, 8, 6, 18, or 26.");
+    end
+
+    select input_arg
+    case 4 then
+        conn = conndef(2, "minimal");
+    case 8 then
+        conn = conndef(2, "maximal");
+    case 6 then
+        conn = conndef(3, "minimal");
+    case 18 then
+        conn = ones(3, 3, 3);
+        conn(1,1,1) = 0; conn(1,3,1) = 0;
+        conn(3,1,1) = 0; conn(3,3,1) = 0;
+        conn(1,1,3) = 0; conn(1,3,3) = 0;
+        conn(3,1,3) = 0; conn(3,3,3) = 0;
+    case 26 then
+        conn = conndef(3, "maximal");
+    end
+endfunction
 
 function R = dilate(A, se)
-    R = conv2(double(A), double(se), "same") > 0;
+    R = imfilter_nd(A, se, 0) > 0;
 endfunction
 
 function R = erode(A, se)
-    [r, c] = size(A);
-    P = ones(r + 2, c + 2) ~= 0; 
-    P(2:r+1, 2:c+1) = A;
-    
-    // Convolve the padded image
     full = sum(double(se(:)));
-    R_padded = conv2(double(P), double(se), "same") >= full;
-    
-    // Crop back to original dimensions
-    R = R_padded(2:r+1, 2:c+1);
+    R = imfilter_nd(A, se, 1) >= full;
 endfunction
 
 function R = open(A, se)
-    pad = 1;
-    P = padarray(A, pad);
-    P = dilate(erode(P, se), se);
-    [r, c] = size(A);
-    R = P(pad+1:r+pad, pad+1:c+pad);
+    R = dilate(erode(A, se), se);
 endfunction
 
 function R = close(A, se)
-    pad = 1;
-    P = padarray(A, pad);
-    P = erode(dilate(P, se), se);
-    [r, c] = size(A);
-    R = P(pad+1:r+pad, pad+1:c+pad);
+    R = erode(dilate(A, se), se);
 endfunction
 
 function R = tophat(A, se)
@@ -66,64 +191,61 @@ function R = bothat(A, se)
     R = close(A, se) & ~A;
 endfunction
 
-function P = padarray(A, pad)
-    [r, c] = size(A);
-    P = zeros(r + 2*pad, c + 2*pad) ~= 0; 
-    P(pad+1:pad+r, pad+1:pad+c) = A;
+function y = filter2(b, x, shape)
+    [lhs, rhs] = argn(0);
+    if rhs < 3 then shape = "same"; end
+    [nr, nc] = size(b);
+    y = conv2(x, b(nr:-1:1, nc:-1:1), shape);
 endfunction
 
-function B = local_applylut(A, lut)
-    W = [256, 32, 4; 128, 16, 2; 64, 8, 1];
-    idx = round(conv2(double(A), W, "same")) + 1;
-    
-    idx(idx > 512) = 512;
-    idx(idx < 1)   = 1;
-    
-    B = matrix(lut(idx), size(A, 1), size(A, 2));
+function A = applylut(BW, LUT)
+    nq = log(length(LUT)) / log(2);
+    n = sqrt(nq);
+    w = matrix(2 .^ [0 : nq - 1], n, n);
+    w_flipped = w(n:-1:1, n:-1:1);
+    idx = filter2(w_flipped, bool2s(BW));
+    A = matrix(LUT(idx(:)+1), size(idx,1), size(idx,2));
 endfunction
 
+
+// MAIN BWMORPH FUNCTION
 
 
 function bw2 = bwmorph(bw, operation, n)
-
-    if argn(2) < 2 | argn(2) > 3 then
-        error("bwmorph: need 2 or 3 arguments:  bwmorph(bw, operation [, n])");
+    [lhs, rhs] = argn(0);
+    if rhs < 2 | rhs > 3 then
+        error("bwmorph: need 2 or 3 arguments: bwmorph(bw, operation [, n])");
     end
-    if argn(2) < 3 then
-        n = 1;
-    end
+    if rhs < 3 then n = 1; end
 
     if ~(type(bw) == 1 | type(bw) == 4 | type(bw) == 8) then
         error("bwmorph: BW must be a numeric or boolean matrix");
     end
-    if type(operation) ~= 10 then
-        error("bwmorph: OPERATION must be a string");
-    end
-    if (~(type(n) == 1 | type(n) == 8)) | (size(n, "*") ~= 1) then
-        error("bwmorph: N must be a scalar");
-    end
-    if n < 0 then
-        n = 1;
-    end
+    if type(operation) ~= 10 then error("bwmorph: OPERATION must be a string"); end
+    if (~(type(n) == 1 | type(n) == 8)) | (size(n, "*") ~= 1) then error("bwmorph: N must be a scalar"); end
+    if n < 0 then n = 1; end
+    if type(bw) <> 4 then bw = (bw <> 0); end
 
-    if type(bw) <> 4 then
-        bw = (bw <> 0);
-    end
+    dims = length(size(bw));
+    se_base = strel_hypercube(dims, 3); // Dynamically 2D or 3D based on input
 
-    se3 = ones(3, 3);
-    loop_once = %f;
-    op = convstr(operation, "l");   
-
-    morph_tag = op; 
-    lut1 = []; lut2 = []; K = [];
-    thresh = 0;
-    post_bridge = %f;   
+    loop_once  = %f;
+    post_morph = "";
+    op = convstr(operation, "l");
+    morph_tag = op;
+    lut1 = []; lut2 = [];
+    connectivity = 0; kernel = []; majority_thresh = 0;
+    thicken_pad = 0; thicken_nr = 0; thicken_nc = 0; thicken_nd = 0;
 
     select op
+
         case "bothat"
-            loop_once = %t; morph_tag = "bothat";
+            loop_once = %t;
+            morph_tag = "bothat";
+
         case "bridge"
-            loop_once = %t; morph_tag = "lut1";
+            loop_once = %t;
+            morph_tag = "lut1";
             v = [0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
                  0;1;0;0;0;1;0;0;1;1;0;0;1;1;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
                  0;0;1;1;1;1;1;1;0;0;0;0;1;1;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
@@ -141,10 +263,18 @@ function bw2 = bwmorph(bw, operation, n)
                  0;1;1;1;1;1;1;1;0;0;0;0;1;1;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
                  0;1;0;0;0;1;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
             lut1 = (v ~= 0);
+
         case "clean"
-            loop_once = %t; morph_tag = "conv_gt"; K = ones(3, 3); K(2,2) = 8; thresh = 8;
+            loop_once = %t;
+            morph_tag = "conv_gt";
+            kernel = ones(se_base);
+            connectivity = length(kernel) - 1;
+            kernel(ceil(length(kernel)/2)) = connectivity;
+
         case "close"
-            loop_once = %t; morph_tag = "close";
+            loop_once = %t;
+            morph_tag = "close";
+
         case "diag"
             morph_tag = "lut1";
             v = [0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
@@ -164,8 +294,10 @@ function bw2 = bwmorph(bw, operation, n)
                  0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
                  0;0;1;1;0;0;0;0;0;0;1;1;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
             lut1 = (v ~= 0);
+
         case "dilate"
             morph_tag = "dilate";
+
         case "endpoints"
             morph_tag = "lut1";
             v = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;0;1;1;1;1;0;1;0;0;0;1; ...
@@ -185,21 +317,42 @@ function bw2 = bwmorph(bw, operation, n)
                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;1;1;0;1;0;0;0;1; ...
                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;0;1;1;1;1;0];
             lut1 = (v ~= 0);
+
         case "erode"
             morph_tag = "erode";
+
         case "fill"
-            loop_once = %t; morph_tag = "conv_ge"; K = [0 1 0; 1 0 1; 0 1 0]; K(2,2) = 4; thresh = 4;
+            loop_once = %t;
+            morph_tag = "conv_ge";
+            kernel = conndef(dims, "minimal");
+            connectivity = sum(kernel(:) <> 0) - 1;
+            kernel(ceil(length(kernel)/2)) = connectivity;
+
         case "hbreak"
-            loop_once = %t; morph_tag = "lut1";
-            v = repmat([zeros(16, 1); ones(16, 1)], 16, 1);
-            v(382) = 0; v(472) = 0; lut1 = (v ~= 0);
+            loop_once = %t;
+            morph_tag = "lut1";
+            v = repmat([zeros(16,1); ones(16,1)], 16, 1);   
+            v(382) = 0; v(472) = 0;
+            lut1 = (v ~= 0);
+
         case "majority"
-            loop_once = %t; morph_tag = "majority"; 
+           
+            morph_tag = "majority";
+            kernel = ones(se_base);
+            majority_thresh = floor(length(kernel)/2) + 1;
+
         case "open"
-            loop_once = %t; morph_tag = "open";
+            loop_once = %t;
+            morph_tag = "open";
+
         case "remove"
-            loop_once = %t; morph_tag = "conv_gt"; K = [0 -1 0; -1 4 -1; 0 -1 0]; thresh = 0;
-            
+            loop_once = %t;
+            morph_tag = "conv_gt";
+            kernel = -conndef(dims, "minimal");
+            center_val = sum(kernel(:) <> 0) - 1;
+            kernel(ceil(length(kernel)/2)) = center_val;
+            connectivity = 0;   
+
         case "shrink"
             morph_tag = "lut1_and";
             v1 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;0;1;1;1;1;0;1;0;0;1;1; ...
@@ -236,9 +389,10 @@ function bw2 = bwmorph(bw, operation, n)
                   1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1; ...
                   1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
             lut2 = (v2 ~= 0);
-            
-        case "skel"
-            morph_tag = "lut1_and"; post_bridge = %t;
+
+        case {"skel", "skel-pratt"}
+            morph_tag = "lut1_and";
+            post_morph = "bridge";
             v1 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;1;0;0;0;0;1; ...
                   0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
                   0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;1;0;0;0;1; ...
@@ -273,127 +427,220 @@ function bw2 = bwmorph(bw, operation, n)
                   1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
                   1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
             lut2 = (v2 ~= 0);
-            
+
         case "skel-lantuejoul"
             if n > 0 then
-                acc = zeros(size(bw,1), size(bw,2)) ~= 0;   
+                acc  = zeros(size(bw,1), size(bw,2), size(bw,3)) ~= 0;
                 iter = 1;
                 while iter <= n
                     if ~or(bw(:)) then break; end
-                    ebw = erode(bw, se3);
-                    acc = acc | (bw & ~dilate(ebw, se3));
+                    ebw = erode(bw, se_base);
+                    acc = acc | (bw & ~dilate(ebw, se_base));
                     bw  = ebw;
                     iter = iter + 1;
                 end
-                bw = acc; n = 0;
+                bw = acc;
+                n  = 0;
             end
             morph_tag = "done";
+
         case "spur"
             morph_tag = "lut1";
-            v = repmat([zeros(16,1); ones(16,1)], 16, 1);
+            v = repmat([zeros(16,1); ones(16,1)], 16, 1);   
             v(18) = 0; v(21) = 0; v(81) = 0; v(273) = 0;
             lut1 = (v ~= 0);
-            
-        case "thin"
-            morph_tag = "hit_or_miss";
-            v1 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;1;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
+
+        case "thicken"
+            if n > 0 then
+                sz = size(bw);
+                if length(sz) < 3 then sz(3) = 1; end
+                nr = sz(1); nc = sz(2); nd = sz(3);
+
+                pad_sz = 2 * min(max(nr, nc), n);
+                P = zeros(nr + 2*pad_sz, nc + 2*pad_sz, nd) ~= 0;
+                P(pad_sz+1:pad_sz+nr, pad_sz+1:pad_sz+nc, 1:nd) = bw;
+
+
+                bw = bwmorph(~P, "thin-pratt", n);
+
+                loop_once = %t;
+                n = 1;
+                morph_tag = "lut1";
+                thicken_pad = pad_sz; thicken_nr = nr; thicken_nc = nc; thicken_nd = nd;
+                post_morph = "thicken";
+
+                vd = [0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;1;1;0;0;0;0;0;0;1;1;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;1;1;0;0;0;0;0;0;1;1;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;1;1;0;0;0;0;0;0;1;1;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;1;1;0;0;0;0;0;0;1;1;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;1;1;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                      0;0;1;1;0;0;0;0;0;0;1;1;0;0;1;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
+                lut1 = (vd ~= 0);
+            else
+                morph_tag = "done";
+            end
+
+        case "thin-pratt"
+            morph_tag = "lut1_and";
+            v1 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;1;1;0;0;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;1; ...
                   0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;1;0;0;0;1; ...
                   0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;1;0;0;0;0;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;1;0;0;0;1; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1];
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;1;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;0;1;1;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;0;0;0;0;0;0;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;0;0;0;0;1;1;0;1;0;0;0;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;1;1;1;1;0;0;1;1;0;0];
             lut1 = (v1 ~= 0);
-            v2 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;1;1;1;0;0;1;1;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0; ...
-                  0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;1;1;0;0;1;1;0;0;0;0;0;0;0;0];
+            v2 = [1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;0;1;1;1;0;1;0;1;1;0;0;0;0;1;0; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;0;0;1;1;0;0;0;0;0;1;1;0;0;1;0; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;0;0;0;0;1;1;1;1;0;0;0;1;1;0;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1;0;1;1;1;0;1;0;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;0;0;0;0;1;0;1;0;0;1;1;1;1;1;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1;1;1;0;0;1;1;0;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;0;0;1;1;0;1;0;0;1;0;1;1;0;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;0;1;0;1;1;1;0;1;0;1;0;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;0;1;0;1;0;1;0;1;1;1;1;1;1;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;0;1;0;1;0;0;1;0;1;1;1;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;0;0;1;0;1;0;0;1;0;1;1;1;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1;0;1;1;1;1;1;1;1; ...
+                  1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
             lut2 = (v2 ~= 0);
-            
+
+        case "thin"
+            morph_tag = "lut1_then_lut2";
+            v1 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;0;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;0;1;0;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;0;0;1;0;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;0;1;1;1;0;0;1;1;0;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;0;0;1;0;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;0;1;1;1;0;0;1;1;0;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;0;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;0;0;1;0;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;0;1;1;1;0;0;1;1;0;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;0;0;1;0;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;0;1;1;1;0;0;1;1;0;1;1;1];
+            lut1 = (v1 ~= 0);
+            v2 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;0;1;1;0;0;1;1;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;1;1;0;0;1;1;0;0;1;1;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;0;0;0;1;1;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;0;0;1;1;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;0;0;0;1;0;0;1;1;0;0;1;1;0;0; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0;0;0;1;0;0;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1; ...
+                  0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1];
+            lut2 = (v2 ~= 0);
+
         case "tophat"
-            loop_once = %t; morph_tag = "tophat";
+            loop_once = %t;
+            morph_tag = "tophat";
+
         else
             error(msprintf("bwmorph: unknown OPERATION ''%s''", operation));
-    end   
+    end
 
-// Loop
     if loop_once & n > 1 then n = 1; end
-
-    bw2_tmp = bw;   
+    bw2_tmp = bw;
 
     i = 1;
     while i <= n
         select morph_tag
             case "dilate"
-                bw2_tmp = dilate(bw, se3);
+                bw2_tmp = dilate(bw, se_base);
             case "erode"
-                bw2_tmp = erode(bw, se3);
+                bw2_tmp = erode(bw, se_base);
             case "open"
-                bw2_tmp = open(bw, se3);
+                bw2_tmp = open(bw, se_base);
             case "close"
-                bw2_tmp = close(bw, se3);
+                bw2_tmp = close(bw, se_base);
             case "tophat"
-                bw2_tmp = tophat(bw, se3);
+                bw2_tmp = tophat(bw, se_base);
             case "bothat"
-                bw2_tmp = bothat(bw, se3);
+                bw2_tmp = bothat(bw, se_base);
+
             case "lut1"
-                bw2_tmp = local_applylut(bw, lut1);
+                if dims > 2 then
+                    for d = 1:size(bw,3)
+                        bw2_tmp(:,:,d) = applylut(bw(:,:,d), lut1);
+                    end
+                else
+                    bw2_tmp = applylut(bw, lut1);
+                end
+
             case "lut1_and"
-                bw2_tmp = bw & local_applylut(local_applylut(bw, lut1), lut2);
-                
-            
-            case "hit_or_miss"
-                bw2_tmp = bw & ~local_applylut(bw, lut1);
-                bw2_tmp = bw2_tmp & ~local_applylut(bw2_tmp, lut2);
-                
+                if dims > 2 then
+                    for d = 1:size(bw,3)
+                        sl = bw(:,:,d);
+                        bw2_tmp(:,:,d) = sl & applylut(applylut(sl, lut1), lut2);
+                    end
+                else
+                    bw2_tmp = bw & applylut(applylut(bw, lut1), lut2);
+                end
+
+            case "lut1_then_lut2"
+                if dims > 2 then
+                    for d = 1:size(bw,3)
+                        bw2_tmp(:,:,d) = applylut(applylut(bw(:,:,d), lut1), lut2);
+                    end
+                else
+                    bw2_tmp = applylut(applylut(bw, lut1), lut2);
+                end
+
             case "conv_gt"
-                bw2_tmp = conv2(double(bw), K, "same") > thresh;
+                bw2_tmp = imfilter_nd(bw, kernel, 0) > connectivity;
             case "conv_ge"
-                bw2_tmp = conv2(double(bw), K, "same") >= thresh;
-                
-            
+                bw2_tmp = imfilter_nd(bw, kernel, 0) >= connectivity;
             case "majority"
-                [nr, nc] = size(bw);
-                P = [bw(1,:); bw; bw(nr,:)];
-                P = [P(:,1), P, P(:,nc)];
-                bw2_tmp = conv2(double(P), ones(3,3), "valid") >= 5;
-                
+                bw2_tmp = imfilter_nd(bw, kernel, 0) >= majority_thresh;
             case "done"
                 bw2_tmp = bw;
         end
 
-        if isequal(bw, bw2_tmp) then
-            break;
-        end
+        if isequal(bw, bw2_tmp) then break; end
         bw = bw2_tmp;
         i  = i + 1;
     end
 
-    if post_bridge & n > 0 then
+    if post_morph == "bridge" & n > 0 then
         bw2_tmp = bwmorph(bw2_tmp, "bridge");
+    elseif post_morph == "thicken" & n > 0 then
+       
+        bw2_tmp = ~bw2_tmp(thicken_pad+1:thicken_pad+thicken_nr, thicken_pad+1:thicken_pad+thicken_nc, 1:thicken_nd);
+        if thicken_nd == 1 then bw2_tmp = bw2_tmp(:,:,1); end
     end
 
     bw2 = bw2_tmp;
-
 endfunction
