@@ -78,7 +78,7 @@ function [board] = checkerboard(varargin)
 
     //Apply Grey Shading on the Left Side
     // In Scilab, we cannot easily use dynamic cell string indices like {":"}
-    // So we use matrix reshaping to safely target the 2nd dimension.
+    // So i use matrix reshaping to  target the 2nd dimension.
     expected_size = lengths * 2 * side;
     D1 = expected_size(1);
     D2 = expected_size(2);
