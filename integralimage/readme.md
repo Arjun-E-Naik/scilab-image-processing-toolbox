@@ -201,6 +201,9 @@ J = integralImage(I7, "upright");
 ### Test 8 — 3D Hypermatrix Channel Stack (Rotated)
 
 ```scilab
+I7 = zeros(2, 2, 2);
+I7(:,:,1) = [1, 2; 3, 4];
+I7(:,:,2) = [5, 6; 7, 8];
 J = integralImage(I7, "rotated");
 ```
 
