@@ -1,48 +1,35 @@
-function lut = makelut(fun,n,varargin)
-    [lhs,rhs] = argn(0);
+function lut = makelut(fun, n, varargin)
+    [lhs, rhs] = argn(0);
 
     if rhs < 2 then
         error("makelut: Wrong number of input arguments.");
     end
 
-    if (n<2) then
+    if n < 2 then
         error("makelut: n should be a natural number >= 2");
     end
 
-
-    nq = n^2 ;
+    nq = n^2;
     c = 2^nq;
 
-    lut = zeros(c,1);
+    lut = zeros(c, 1);
 
-    w = int32(matrix(2.^[nq-1:-1:0],n,n)); // reshape function in octave
+    // reshape(2.^[nq-1:-1:0], n, n)
+    w = int32(matrix(2.^[nq-1:-1:0], n, n));
 
     for i = 0:c-1
-        idx = bitand(w,int32(i)*ones(w)) > 0; //same function in octave
-        lut(i+1) = feval(fun,idx,varargin(:));
+        
+        idx = bitand(w, int32(i)) > 0;
+        
+        nargs = length(varargin);
+        if nargs == 0 then
+            lut(i+1) = fun(idx);
+        else
+            argstr = "idx";
+            for j = 1:nargs
+                argstr = argstr + ", varargin(" + string(j) + ")";
+            end
+            execstr("lut(i+1) = fun(" + argstr + ");");
+        end
     end
-    
-endfunction
-
-function retval = feval(fun, idx, varargin)
-
-    nargs = length(varargin);
-
-    select nargs
-    case 0 then
-        retval = fun(idx);
-
-    case 1 then
-        retval = fun(idx, varargin(1));
-
-    case 2 then
-        retval = fun(idx, varargin(1), varargin(2));
-
-    case 3 then
-        retval = fun(idx, varargin(1), varargin(2), varargin(3));
-
-    otherwise
-        error("feval: too many arguments");
-    end
-
 endfunction
