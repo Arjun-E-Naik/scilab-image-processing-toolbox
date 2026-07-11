@@ -33,9 +33,9 @@ function retval = stdfilt(I, varargin)
             pad_args($+1) = varargin(k);
         end
     end
-    I = padarray(I, pad_args(:)); // equal to padarray(I, pad, padding, varargin{:})
+    I = padarray(I, pad_args(:)); // padarray(I, pad, padding, varargin{:})
     even = (round(size(domain) / 2) == sz_domain / 2);
-    // equivalent to cell() block function
+    // cell() block function
     idx = list();
     for k = 1:ndims(I)
         start_idx = 1;
