@@ -3,61 +3,49 @@
 function retval = stdfilt(I, varargin)
     [lhs, rhs] = argn(0);
 
+    //Input Validation
     if (rhs < 1) then
         error("stdfilt: not enough input arguments");
     end
-
-    if (~isimage(I)) then
+    if (~isimage(I)) then // Assumes your codebase provides 'isimage'
         error("stdfilt: first input must be a matrix");
     end
 
-    //domain = true(3)
-    if (rhs >= 2) then
-        domain = varargin(1);
-    else
-        domain = ones(3, 3) == 1;   
-    end
+    // Handling default args
+    domain = ones(3, 3) == 1; 
+    padding = "symmetric";   
+    
+    if (rhs >= 2) then domain = varargin(1); end
+    if (rhs >= 3) then padding = varargin(2); end
 
     if (~islogical(domain) & ~isnumeric(domain)) then
         error("stdfilt: second input argument must be a logical matrix");
     end
+    domain = (domain <> 0); 
 
-    if (type(domain) <> 4) then
-        domain = (domain <> 0);     
-    end
-
-    
-    if (rhs >= 3) then
-        padding = varargin(2);
-    else
-        padding = "symmetric";
-    end
-
+    //Dynamic Padding List Construction ----> {:} -> this is not in scilab 
     pad = floor(size(domain) / 2);
-
-    //  varargin{:} forwarded to padarray 
-    if (rhs >= 4) then
-        extra = varargin(3:$);      // all remaining args (usually 0 or 1)
-        if (length(extra) == 1) then
-            I = padarray(I, pad, padding, extra(1));
-        else
-            I = padarray(I, pad, padding);
-        end
-    else
-        I = padarray(I, pad, padding);
-    end
-
+    pad_args = list(pad, padding);
     
-    even = (round(size(domain) / 2) == size(domain) / 2);
+    // positional parameters  (varargin{k})
+    if (rhs >= 4) then
+        for k = 3:length(varargin)
+            pad_args($+1) = varargin(k);
+        end
+    end
+    I = padarray(I, pad_args(:)); // equal to padarray(I, pad, padding, varargin{:})
+    even = (round(size(domain) / 2) == sz_domain / 2);
+    // equivalent to cell() block function
     idx = list();
     for k = 1:ndims(I)
-        idx(k) = (even(k) + 1):size(I, k);
+        start_idx = 1;
+        if (k <= length(even)) then
+            start_idx = even(k) + 1;
+        end
+        idx(k) = start_idx:size(I, k);
     end
-
-    
-    I = I(idx(1), idx(2));
-
-    retval = __spatial_filtering__(I, domain, "std", zeros(size(domain)), 0);
+    I = I(idx(:)); 
+    retval = __spatial_filtering__(I, domain, "std", zeros(domain), 0);
 endfunction
 
 
