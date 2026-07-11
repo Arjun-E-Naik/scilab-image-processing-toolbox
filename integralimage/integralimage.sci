@@ -41,13 +41,12 @@ function J = integralImage(I, orientation)
 endfunction
 
 function J = integralImage_rotate_2D(I)
-  // Robust: extract dimensions explicitly so zeros(rows,cols) is unambiguous
-  nr = size(I, 1);      // number of rows    (was s(1))
-  nc = size(I, 2);      // number of columns (was s(2))
+  nr = size(I, 1);     
+  nc = size(I, 2);      
   J  = zeros(nr + 1, nc + 2);
   
   J(2, 2:nc+1) = I(1, :);
-  s21 = nc + 1;         // last column that the loop writes into
+  s21 = nc + 1;         
   
   for y = 3:(nr + 1)
     y1 = y - 1;
@@ -58,7 +57,7 @@ function J = integralImage_rotate_2D(I)
 endfunction
 
 
-// ---------- helper functions (unchanged) ----------
+// helper functions 
 function result = isimage(x)
     result = isnumeric(x) | islogical(x);
 endfunction
@@ -269,22 +268,22 @@ function B = padarray_constant(A, padsize, padval, direction)
     end
 
     if ~has_rest then
-        // ---- Plain 2-D case (unchanged, already proven to work) ----
+        
         B = padval * ones(new_rows, new_cols);
         B(r1:r2, c1:c2) = A;
     else
-        // ---- N-D case: flatten ALL extra dims into one, loop as 2-D slices ----
+        //N-D case: 
         n_extra = prod(sz_rest);
-        A_flat  = matrix(A, rows, cols, n_extra);   // merge trailing dims -> 3-D
+        A_flat  = matrix(A, rows, cols, n_extra);   
 
         B_flat = padval * ones(new_rows, new_cols, n_extra);
         for k = 1:n_extra
             slice = padval * ones(new_rows, new_cols);
-            slice(r1:r2, c1:c2) = A_flat(:, :, k);   // pure 2-D assignment
-            B_flat(:, :, k) = slice;                 // reliable page assignment
+            slice(r1:r2, c1:c2) = A_flat(:, :, k);   
+            B_flat(:, :, k) = slice;                 
         end
 
-        // restore original extra-dimension shape (channels, frames, etc.)
+        
         B = matrix(B_flat, [new_rows, new_cols, sz_rest]);
     end
 endfunction
