@@ -11,7 +11,6 @@ function retval = stdfilt(I, varargin)
         error("stdfilt: first input must be a matrix");
     end
 
-    
     if (rhs >= 2) then
         domain = varargin(1);
     else
@@ -22,32 +21,32 @@ function retval = stdfilt(I, varargin)
         error("stdfilt: second input argument must be a logical matrix");
     end
 
-    
     if (type(domain) <> 4) then
         domain = (domain <> 0);
     end
 
     pad_sz = floor(size(domain) / 2);
 
-  
     if (rhs >= 3) then
         padding = varargin(2);
     else
-        padding = "symmetric"; 
+        padding = "symmetric";
     end
 
-    
     if (rhs >= 4) then
         I = padarray(I, pad_sz, padding, varargin(3));
     else
         I = padarray(I, pad_sz, padding);
     end
 
-   
+    // cell/loop block 
     even = (round(size(domain) / 2) == size(domain) / 2);
-    idx1 = (even(1) + 1) : size(I, 1);    // this id1 and id2 for cell() function , which splits like this
-    idx2 = (even(2) + 1) : size(I, 2);
-    I = I(idx1, idx2); 
+    idx = list();                       // equivalent to cell(1, ndims(I))
+    for k = 1:ndims(I)                 
+        idx(k) = (even(k) + 1):size(I, k);  
+    end
+    // Because conv2 (inside __spatial_filtering__) is 2D, idx(1) & idx(2) are sufficient.
+    I = I(idx(1), idx(2));
 
 
     retval = __spatial_filtering__(I, domain, "std", zeros(size(domain)), 0);
