@@ -54,42 +54,10 @@ J = integralImage3(I)
 
 ---
 
-## Display Helper
+## Dependencies
+## padarray()
 
-> **Note on Scilab `disp` behaviour:**  
-> When displaying a hypermatrix, Scilab's built-in `disp` may suppress all-zero layers or omit slice headers (`(:,:,k)`) when the array has only two depth layers. To guarantee that **every** layer is printed with its index header — including zero-padded layers — use the helper below.
 
-### `disp_all_layers` — Explicit layer-by-layer display
-
-Place this function in your workspace or at the bottom of `integralImage3.sci`:
-
-```scilab
-function disp_all_layers(J)
-    // Get dimensions and number of dimensions
-    sz = size(J);
-    nd = length(sz);
-
-    // 2-D case: print directly
-    if (nd <= 2) then
-        disp(J);
-        return;
-    end
-
-    // 3-D case: print each layer with its (:,:,:) header
-    layers = sz(3);
-    for k = 1:layers
-        printf("(:,:,%d)\n\n", k);
-        disp(J(:,:,k));
-    end
-endfunction
-```
-
-**Usage in test scripts:**
-
-```scilab
-J = integralImage3(I);
-disp_all_layers(J);
-```
 
 ---
 
@@ -108,16 +76,20 @@ disp(integralImage3(I1));
 **Expected output:**
 
 ```
+  "Test 1: Basic 2x2 grayscale"
+(:,:,1)
+
+   0.   0.   0.
+   0.   0.   0.
+   0.   0.   0.
+(:,:,2)
+
    0.   0.   0. 
    0.   1.   3. 
    0.   4.   10.
 ```
 
-**Explanation:**  
-- (1,1) → 1  
-- (1,2) → 1+2 = 3  
-- (2,1) → 1+3 = 4  
-- (2,2) → 1+2+3+4 = 10  
+  
 
 ---
 
@@ -160,8 +132,7 @@ disp(integralImage3(I2));
    0.   36.   78.
 ```
 
-**Explanation:**  
-Layer 1 is the zero-padded pre-slice. Each subsequent layer holds the cumulative sum of all pixels up to that depth. Layer 2 = raw first slice, Layer 3 = first+second slice, Layer 4 = first+second+third slice.
+
 
 ---
 
@@ -176,30 +147,47 @@ disp(integralImage3(I3));
 **Expected output:**
 
 ```
+(:,:,1)
+
+   0.   0.
+   0.   0.
+(:,:,2)
+
    0.   0. 
    0.   42.
 ```
 
-**Explanation:** A 1×1 input becomes a 2×2 padded integral image. The only non-zero sum is the single input pixel itself.
+
 
 ---
 
-### Test 4 — Row Vector (1×4)
+### Test 4 —zero matrix
 
 ```scilab
-I4 = [1 2 3 4];
-disp("Test 4: Row vector 1x4");
+I12 = zeros(2, 2, 2);
+disp("Test 4: All-zero 3D matrix (2x2x2)");
 disp(integralImage3(I4));
 ```
 
 **Expected output:**
 
 ```
-   0.   0.   0.   0.    0. 
-   0.   1.   4.   10.   20.
-```
+(:,:,1)
 
-**Explanation:** Cumulative sums along the row: 1, 1+2=3, 1+2+3=6, 1+2+3+4=10. With the leading zero column: 0, 1, 4, 10, 20.
+   0.   0.   0.
+   0.   0.   0.
+   0.   0.   0.
+(:,:,2)
+
+   0.   0.   0.
+   0.   0.   0.
+   0.   0.   0.
+(:,:,3)
+
+   0.   0.   0.
+   0.   0.   0.
+   0.   0.   0.
+```
 
 ---
 
@@ -214,6 +202,15 @@ disp(integralImage3(I5));
 **Expected output:**
 
 ```
+(:,:,1)
+
+   0.   0.
+   0.   0.
+   0.   0.
+   0.   0.
+   0.   0.
+(:,:,2)
+
    0.   0. 
    0.   1. 
    0.   3. 
@@ -221,7 +218,6 @@ disp(integralImage3(I5));
    0.   10.
 ```
 
-**Explanation:** Cumulative sums down the column: 1, 3, 6, 10. With the leading zero row prepended.
 
 ---
 
@@ -236,13 +232,19 @@ disp(integralImage3(I6));
 **Expected output:**
 
 ```
+(:,:,1)
+
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+(:,:,2)
+
    0.   0.   0.    0. 
    0.   0.  -1.    1. 
    0.   3.   2.    0. 
    0.   8.   13.   11.
 ```
-
-**Explanation:** Verifies correct handling of signed values and zero entries in the cumulative sum.
 
 ---
 
@@ -257,13 +259,20 @@ disp(integralImage3(I7));
 **Expected output:**
 
 ```
+(:,:,1)
+
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+(:,:,2)
+
    0.   0.   0.   0.
    0.   1.   1.   2.
    0.   1.   2.   3.
    0.   2.   4.   6.
 ```
 
-**Explanation:** Logical `%T` is converted to `1.0` and `%F` to `0.0` before accumulation. The bottom-right corner sums all six `true` pixels.
 
 ---
 
@@ -278,12 +287,19 @@ disp(integralImage3(I8));
 **Expected output:**
 
 ```
+  "Test 8: int8 2x3 input"
+(:,:,1)
+
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+(:,:,2)
+
    0.   0.   0.    0. 
    0.   1.   3.    6. 
    0.   5.   12.   21.
 ```
 
-**Explanation:** Input is automatically promoted to `double` before accumulation, preventing `int8` overflow. The bottom-right value is the sum of all six integers: 21.
 
 ---
 
@@ -329,7 +345,6 @@ disp(integralImage3(I9));
    0.   84.   184.   300.
 ```
 
-**Explanation:** Four 2×3 frames are stacked in depth. The output has five depth slices: one zero-padded pre-slice followed by the cumulative integral images across all four frames.
 
 ---
 
@@ -344,14 +359,22 @@ disp(integralImage3(I10));
 **Expected output:**
 
 ```
+(:,:,1)
+
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+   0.   0.   0.   0.
+(:,:,2)
+
    0.   0.     0.    0.  
    0.   0.5    2.    4.5 
    0.   4.     10.   18. 
    0.   10.5   24.   40.5
-   0.   20.    44.   72. 
+   0.   20.    44.   72.
 ```
 
-**Explanation:** Verifies floating-point precision on a 4×3 matrix. The bottom-right corner is the sum of all twelve elements: 72.0.
 
 ---
 
@@ -365,21 +388,4 @@ disp(integralImage3(I10));
 
 ---
 
-
-
----
-
-### How to use the display helper
-
-If you want **every** layer explicitly labeled (especially useful when Scilab suppresses headers on small hypermatrices), replace:
-
-```scilab
-disp(integralImage3(I));
-```
-
-with:
-
-```scilab
-disp_all_layers(integralImage3(I));
-```
 
