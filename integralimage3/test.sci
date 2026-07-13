@@ -19,9 +19,9 @@ I3 = [42];
 disp("Test 3: Single pixel");
 disp(integralImage3(I3));
 
-// ========== Test Case 4: Row vector (1x4) ==========
-I4 = [1 2 3 4];
-disp("Test 4: Row vector 1x4");
+// ========== Test Case 4: zero matrix ==========
+I4 = zeros(2, 2, 2);
+disp("Test 4: All-zero 3D matrix (2x2x2)");
 disp(integralImage3(I4));
 
 // ========== Test Case 5: Column vector (4x1) ==========
