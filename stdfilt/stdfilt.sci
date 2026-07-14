@@ -12,7 +12,7 @@ function retval = stdfilt(I, varargin)
     end
 
 
-    domain  = (ones(3, 3) == 1);   // true(3)
+    domain  = ones(3, 3);  
     padding = "symmetric";
 
     if (rhs >= 2) then
