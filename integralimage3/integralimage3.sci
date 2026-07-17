@@ -22,7 +22,8 @@ function J = integralImage3(I)
     end
   end
 
-  //  Normalise to 3-D 
+  //  ---------------------------------------- 
+// this block handles the 2d and 3d matrices and assign correct input to cumsum().
   sz = size(I);
   if (length(sz) < 3) then
     sz = [sz, 1];
@@ -37,7 +38,7 @@ function J = integralImage3(I)
     I_3d(:, :, 1) = I;
     I = I_3d;
   end
-
+// ---------------------------------------------------
 
   J = cumsum(I, 1);
   J = cumsum(J, 2);
