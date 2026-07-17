@@ -164,7 +164,7 @@ disp(integralImage3(I3));
 ### Test 4 —zero matrix
 
 ```scilab
-I12 = zeros(2, 2, 2);
+I4 = zeros(2, 2, 2);
 disp("Test 4: All-zero 3D matrix (2x2x2)");
 disp(integralImage3(I4));
 ```
