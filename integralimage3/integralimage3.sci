@@ -1,4 +1,4 @@
-exec("padarray.sci",-1);
+
 
 function J = integralImage3(I)
 
