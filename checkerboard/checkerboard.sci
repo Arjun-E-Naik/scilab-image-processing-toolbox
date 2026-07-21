@@ -1,4 +1,4 @@
-
+exec("cellfun1.sci",-1);
 
 function [board] = checkerboard(side, varargin)
 
@@ -8,7 +8,7 @@ function [board] = checkerboard(side, varargin)
         side = 10;
     end
 
-    if rhs > 0 & ~(length(side) == 1 & (type(side) == 1 | type(side) == 8) & side == fix(side) & side >= 0) then
+    if rhs > 0 & ~(isscalar(side) & isnumeric(side) & side == fix(side) & side >= 0) then
         error("checkerboard: SIDE must be a non-negative integer");
     end
 
@@ -22,7 +22,7 @@ function [board] = checkerboard(side, varargin)
 
         first_var = varargin(1);
         if length(varargin) == 1 then
-            if length(first_var) == 1 then // isscalar(first_var)
+            if isscalar(first_var) then // isscalar(first_var)
                 lengths = [first_var, first_var];
             else
                 lengths = first_var;
@@ -55,6 +55,7 @@ function [board] = checkerboard(side, varargin)
     end
 
     nc = size(board, 2);
+
     left_idx(2) = string(nc/2 + 1) + ":" + string(nc);
 
 //      board(left_idx{:}) *= 0.7; --> below blocks.
@@ -71,22 +72,7 @@ function [board] = checkerboard(side, varargin)
 endfunction
 
 
-// COMPATIBILITY LAYER
 
-function res = cellfun(func_name, C)
-    res = zeros(1, length(C));
-    for i = 1:length(C)
-        item = C(i);
-        select func_name
-            case "isnumeric" then
-                res(i) = bool2s(type(item) == 1 | type(item) == 8);
-            case "numel" then
-                res(i) = length(item);
-            else
-                error("cellfun: unsupported function name in shim.");
-        end
-    end
-endfunction
 
 function mat = cell2mat(C)
     mat = [];
@@ -123,4 +109,14 @@ function grids = nthargout_ndgrid(nd, vec)
     for i = 1:nd
         execstr("grids(i) = out" + string(i));
     end
+endfunction
+
+
+
+function result = isscalar(x)
+    result = (size(x, 1) == 1 & size(x, 2) == 1);
+endfunction
+
+function result = isnumeric(x)
+    result = or(type(x) == [1, 5, 8]);
 endfunction
