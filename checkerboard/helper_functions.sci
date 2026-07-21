@@ -1,28 +1,6 @@
-function res = cellfun(func_name, C)
-  
-    res = zeros(1, length(C));
-    
-    for i = 1:length(C)
-        item = C(i);
-        select func_name
-            case "isnumeric" then
-                // bool2s guarantees Scilab outputs a safe 1 or 0
-                res(i) = bool2s(type(item) == 1 | type(item) == 8);
-            case "numel" then
-                res(i) = length(item);
-            else
-                error("cellfun: unsupported function name in shim.");
-        end
-    end
-endfunction
 
-function mat = cell2mat(C)
-    //  cell2mat, flattening a list into a row vector
-    mat = [];
-    for i = 1:length(C)
-        mat = [mat, C(i)];
-    end
-endfunction
+
+
 
 function grids = nthargout_ndgrid(nd, vec)
 
