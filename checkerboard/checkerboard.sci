@@ -1,5 +1,48 @@
 
 
+// ====================================================================
+// OVERLOADS:  handle N-Dimensional Empty Arrays
+// ====================================================================
+function [varargout] = %empty_nd_size(M, varargin)
+    dims = double(M.dims(:)');
+    [lhs, rhs] = argn(0);
+    
+    if rhs == 1 then
+        if lhs <= 1 then
+            // Wrap in a list to prevent "ans" suppression on missing disp()
+            varargout = list(dims);
+        else
+            varargout = list();
+            for i = 1:lhs
+                if i <= length(dims) then
+                    varargout(i) = dims(i);
+                else
+                    varargout(i) = 1;
+                end
+            end
+        end
+    else
+        dim_idx = varargin(1);
+        if type(dim_idx) == 10 then
+            if dim_idx == "r" then dim_idx = 1;
+            elseif dim_idx == "c" then dim_idx = 2;
+            else dim_idx = 1; 
+            end
+        end
+        if dim_idx <= length(dims) then
+            varargout = list(dims(dim_idx));
+        else
+            varargout = list(1);
+        end
+    end
+endfunction
+
+function %empty_nd_p(M)
+    dims_str = strcat(string(M.dims(:)'), "x");
+    mprintf("  Empty array: %s\n", dims_str);
+endfunction
+
+
 function [board] = checkerboard(side, varargin)
 
     rhs = argn(2);
@@ -38,7 +81,20 @@ function [board] = checkerboard(side, varargin)
     if ~(size(lengths,1) == 1 | size(lengths,2) == 1) | or(lengths < 0) | or(lengths <> fix(lengths)) then
         error("checkerboard: SIZE or MxNx... list must be non-negative integer");
     end
+    
     nd = length(lengths);
+
+    // ==============================================================
+    // SCALES ALL DIMENSIONS UNIVERSALLY
+    // ==============================================================
+    target_size = lengths * 2 * side;
+    
+    // BYPASS SCILAB GARBAGE COLLECTION FOR EMPTY N-D ARRAYS
+    if prod(target_size) == 0 then
+        board = mlist(["empty_nd", "dims"], int32(target_size(:)));
+        return; 
+    end
+    // ==============================================================
 
     grids = nthargout(1:nd, "ndgrid", linspace(-1, 1, 2*side));
     
@@ -54,19 +110,14 @@ function [board] = checkerboard(side, varargin)
     tile = tile < 0;
     board = bool2s(repmat(tile, lengths));
 
-    // left_idx = repmat ({":"}, 1, nd); ---> {:} iterating in loop.
     left_idx = list();
     for i = 1:nd
         left_idx(i) = ":";
     end
 
     nc = size(board, 2);
-
-    // left_idx{2} = (nc/2 +1):nc; ---> left_idx{:2}
     left_idx(2) = string(nc/2 + 1) + ":" + string(nc);
 
-
-// board(left_idx{:}) *= 0.7; ---> below code handles {:} in loop
     idx_str = "";
     for i = 1:nd
         idx_str = idx_str + left_idx(i);
@@ -79,7 +130,9 @@ function [board] = checkerboard(side, varargin)
 
 endfunction
 
-
+// ====================================================================
+// CORE HELPER FUNCTIONS 
+// ====================================================================
 function mat = cell2mat(C)
     mat = [];
     for i = 1:length(C)
@@ -87,22 +140,15 @@ function mat = cell2mat(C)
     end
 endfunction
 
-
 function arg = nthargout (n, varargin)
-
     [lhs, rhs] = argn(0);
-    
     if (rhs < 1) then
         error("nthargout: not enough input arguments");
     end
-
-
     num_vargs = length(varargin);
-    
     if (num_vargs < 1) then
         error("nthargout: not enough input arguments");
     end
-
     v1 = varargin(1);
     
     if (typeof(v1) == "function" | type(v1) == 10 | type(v1) == 11 | type(v1) == 13) then
@@ -169,10 +215,8 @@ function arg = nthargout (n, varargin)
         for i = 1:ntot
             execstr("outargs(i) = o_" + string(i) + ";");
         end
-        
     catch
         err = lasterr();
-
         error("nthargout execution failed: " + strcat(err, " "));
     end
 
@@ -184,22 +228,19 @@ function arg = nthargout (n, varargin)
     else
         arg = outargs(n);
     end
-
 endfunction
-
 
 function result = isscalar(x)
     result = (size(x, 1) == 1 & size(x, 2) == 1);
 endfunction
-
 
 function result = isnumeric(x)
     result = or(type(x) == [1, 5, 8]);
 endfunction
 
 
+// ====================================================================
 // cellfun()
-
 
 function varargout = cellfun(varargin)
     // CELLFUN  Apply function to each cell element
